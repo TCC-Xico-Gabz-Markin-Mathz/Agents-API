@@ -1,0 +1,21 @@
+# Ignore o ambiente virtual local
+.venv
+env/
+venv/
+
+# Ignore arquivos Python compilados
+*.pyc
+__pycache__/
+
+# Ignore arquivos de configuração locais
+*.env
+*.local
+
+# Ignore arquivos de controle de versão
+.git
+.gitignore
+
+# Ignore outros arquivos desnecessários
+.DS_Store
+.idea/
+.vscode/
