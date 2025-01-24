@@ -4,13 +4,13 @@ from qdrant_client import QdrantClient
 
 load_dotenv()
 
-SUPABASE_USER = os.getenv("SUPABASE_USER")
-SUPABASE_PASSWORD = os.getenv("SUPABASE_PASSWORD")
+qdrant_host = os.getenv("QDRANT_HOST", "localhost")
+qdrant_port = os.getenv("QDRANT_PORT", 6333)
 
 
 def connect():
     try:
-        client = QdrantClient(host='localhost', port=6333)
+        client = QdrantClient(host=qdrant_host, port=qdrant_port)
         if client:
             print("Conexão estabelecida com sucesso.")
         return client
