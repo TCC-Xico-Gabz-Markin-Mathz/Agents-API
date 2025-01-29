@@ -12,7 +12,7 @@ Esta é uma API desenvolvida em **FastAPI** que recebe informações sobre a est
   ![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
   ![scikit-learn](https://img.shields.io/badge/scikit--learn-F7931E?style=for-the-badge&logo=scikit-learn&logoColor=white)
   ![Groq](https://img.shields.io/badge/Groq-100C10?style=for-the-badge&logo=groq&logoColor=white)
-  ![Qdrant](https://img.shields.io/badge/Groq-100C10?style=for-the-badge&logo=groq&logoColor=white)
+  ![Qdrant](https://img.shields.io/badge/Qdrant-100C10?style=for-the-badge&logo=groq&logoColor=white)
 
 ## Instalação e Execução
 
