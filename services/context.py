@@ -31,31 +31,24 @@ async def retrieve_context(query: str) -> List[ContextOut]:
     
     return contexts
 
-async def rag_process(database_structure: str, query: str, process: str) -> str:
-    contexts = await retrieve_context(query)
-    
-    if not contexts:
-        raise HTTPException(
-            status_code=404, 
-            detail="Nenhum contexto relevante foi encontrado para a query fornecida."
-        )
-    
+async def get_sql_query_with_database_structure(database_structure: str, order: str) -> str:
     client = llm_connect()
-    
+
     try:
         chat_completion = client.chat.completions.create(
             messages=[
                 {
                     "role": "system",
                     "content": (
-                        f"Contexto: {contexts[0].payload} "
-                        f"+ Considere a seguinte estrutura do banco de dados: {database_structure}. "
-                        f"{process}"
+                        f"Você é um assistente especializado em SQL. "
+                        f"Com base na seguinte estrutura de banco de dados:\n\n{database_structure}\n\n"
+                        f"Gere uma única query SQL que atenda exatamente à seguinte solicitação do usuário. "
+                        f"Retorne apenas a query SQL, sem explicações ou texto adicional."
                     ),
                 },
                 {
                     "role": "user",
-                    "content": query,
+                    "content": order,
                 },
             ],
             model="gemma2-9b-it",
@@ -66,3 +59,4 @@ async def rag_process(database_structure: str, query: str, process: str) -> str:
             status_code=500, 
             detail=f"Erro no processamento da query com LLM: {str(e)}"
         )
+

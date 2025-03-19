@@ -5,19 +5,18 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 
 from dependencies import get_api_key
-from services.context import rag_process
+from services.context import get_sql_query_with_database_structure
 from models.payloadRAG import RAGQueryRequest, RAGQueryResponse
 
 router = APIRouter(prefix="/rag", tags=["Query"], dependencies=[Depends(get_api_key)])
 
-@router.post("/query", response_model=RAGQueryResponse)
+@router.post("/query/structure", response_model=RAGQueryResponse)
 async def query_rag(request: RAGQueryRequest):
     try:
-        optimized_query = await rag_process(
+        query = await get_sql_query_with_database_structure(
             database_structure=request.database_structure,
-            query=request.query,
-            process=request.process
+            order=request.order
         )
-        return RAGQueryResponse(optimized_query=optimized_query)
+        return RAGQueryResponse(query=query)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao processar RAG: {str(e)}")
