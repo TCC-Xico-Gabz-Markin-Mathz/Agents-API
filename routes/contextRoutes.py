@@ -15,7 +15,7 @@ async def query_rag(request: RAGQueryRequest):
     try:
         query = await get_sql_query_with_database_structure(
             database_structure=request.database_structure,
-            query=request.query
+            order=request.order
         )
         return RAGQueryResponse(query=query)
     except Exception as e:
