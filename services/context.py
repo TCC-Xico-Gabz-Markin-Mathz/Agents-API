@@ -31,14 +31,14 @@ async def retrieve_context(query: str) -> List[ContextOut]:
     
     return contexts
 
-async def rag_process(database_structure: str, query: str, process: str) -> str:
-    contexts = await retrieve_context(query)
+async def get_sql_query_with_database_structure(database_structure: str, order: str) -> str:
+    # contexts = await retrieve_context(query)
     
-    if not contexts:
-        raise HTTPException(
-            status_code=404, 
-            detail="Nenhum contexto relevante foi encontrado para a query fornecida."
-        )
+    # if not contexts:
+    #     raise HTTPException(
+    #         status_code=404, 
+    #         detail="Nenhum contexto relevante foi encontrado para a query fornecida."
+    #     )
     
     client = llm_connect()
     
@@ -48,14 +48,13 @@ async def rag_process(database_structure: str, query: str, process: str) -> str:
                 {
                     "role": "system",
                     "content": (
-                        f"Contexto: {contexts[0].payload} "
-                        f"+ Considere a seguinte estrutura do banco de dados: {database_structure}. "
-                        f"{process}"
+                        f"Considerando a seguinte estrutura do banco de dados SQL {database_structure},"
+                        f"Crie uma query SQL que atenda aos seguintes que serão passados."
                     ),
                 },
                 {
                     "role": "user",
-                    "content": query,
+                    "content": order,
                 },
             ],
             model="gemma2-9b-it",
