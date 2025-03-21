@@ -1,10 +1,10 @@
 from fastapi import HTTPException
-from typing import List, Optional
+from typing import List
 from sentence_transformers import SentenceTransformer
 
 from services.db import connect
 from services.groq import llm_connect
-from models.contextModel import ContextOut
+from models.llmModel import ContextOut
 
 model = SentenceTransformer('all-mpnet-base-v2')
 
@@ -60,3 +60,30 @@ async def get_sql_query_with_database_structure(database_structure: str, order: 
             detail=f"Erro no processamento da query com LLM: {str(e)}"
         )
 
+async def get_result_interpretation(result: str, order: str) -> str:
+    client = llm_connect()
+
+    try:
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        f"Você é um assistente especializado em SQL. "
+                        f"Com base na seguinte pergunta do usuario: {order}"
+                        f"Formate a resposta gerada pelo banco ao realizar a query de uma forma em linguagem natural."
+                        f"Retorne apenas a resposta para o usuario, sem explicação."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": result,
+                },
+            ],
+            model="gemma2-9b-it",
+        )
+        return chat_completion.choices[0].message.content
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Erro no processamento da query com LLM: {str(e)}")
