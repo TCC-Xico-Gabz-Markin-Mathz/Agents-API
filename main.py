@@ -1,11 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routes import contextRoutes
+from routes import llmRoutes
 
 app = FastAPI()
 
-app.include_router(contextRoutes.router)
+app.include_router(llmRoutes.router)
 
 app.add_middleware(
     CORSMiddleware,
