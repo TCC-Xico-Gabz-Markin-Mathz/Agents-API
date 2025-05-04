@@ -129,4 +129,43 @@ async def optimize_generate(query: str, database_structure: str, order: str) -> 
             detail=f"Erro no processamento da query com LLM: {str(e)}"
         )
 
+async def create_database(database_structure: str) -> str:
+    client = llm_connect()
 
+    try:
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "Você é um assistente especializado em bancos de dados relacionais. "
+                        "Sua tarefa é converter uma descrição de estrutura de banco de dados em comandos SQL do tipo DDL (Data Definition Language), como CREATE TABLE.\n\n"
+                        "Considere tipos de dados apropriados, chaves primárias, estrangeiras e restrições se estiverem descritas.\n\n"
+                        "Retorne **apenas os comandos SQL necessários** para criar as tabelas e relacionamentos descritos.\n\n"
+                        "Exemplo de resposta esperada:\n"
+                        "CREATE TABLE clientes (\n"
+                        "    id INT PRIMARY KEY,\n"
+                        "    nome VARCHAR(255),\n"
+                        "    email VARCHAR(255) UNIQUE\n"
+                        ");\n\n"
+                        "CREATE TABLE pedidos (\n"
+                        "    id INT PRIMARY KEY,\n"
+                        "    cliente_id INT,\n"
+                        "    data DATE,\n"
+                        "    FOREIGN KEY (cliente_id) REFERENCES clientes(id)\n"
+                        ");"
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": database_structure,
+                },
+            ],
+            model="gemma2-9b-it",
+        )
+        return chat_completion.choices[0].message.content
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Erro no processamento da estrutura do banco com LLM: {str(e)}"
+        )
