@@ -87,3 +87,46 @@ async def get_result_interpretation(result: str, order: str) -> str:
         raise HTTPException(
             status_code=500, 
             detail=f"Erro no processamento da query com LLM: {str(e)}")
+        
+async def optimize_generate(query: str, database_structure: str, order: str) -> str:
+    client = llm_connect()
+
+    try:
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "Você é um assistente especializado em SQL e otimização de desempenho de queries. A seguir, você receberá:\n\n"
+                        "- A estrutura do banco de dados.\n"
+                        "- Uma query SQL que precisa ser otimizada.\n\n"
+                        "Sua tarefa é:\n"
+                        "1. Analisar a query em relação à estrutura do banco.\n"
+                        "2. Sugerir comandos de otimização, como criação de índices, caso aplicável.\n"
+                        "3. Reescrever a query de forma otimizada.\n\n"
+                        "Retorne uma **lista Python** com os seguintes elementos:\n"
+                        "- Um ou mais comandos CREATE INDEX (caso necessário).\n"
+                        "- A query otimizada.\n\n"
+                        "Formato de exemplo:\n"
+                        "['CREATE INDEX idx_cliente_id ON pedidos(cliente_id);', 'SELECT * FROM pedidos WHERE cliente_id = 123;']\n\n"
+                        "Caso nenhum índice seja necessário, retorne apenas:\n"
+                        "['<query otimizada>']\n\n"
+                        f"Estrutura do banco de dados:\n{database_structure}\n\n"
+                        f"Query original:\n{query}"
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": order,
+                },
+            ],
+            model="gemma2-9b-it",
+        )
+        return chat_completion.choices[0].message.content
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Erro no processamento da query com LLM: {str(e)}"
+        )
+
+
