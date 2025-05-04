@@ -169,3 +169,46 @@ async def create_database(database_structure: str) -> str:
             status_code=500, 
             detail=f"Erro no processamento da estrutura do banco com LLM: {str(e)}"
         )
+        
+def analyze_optimization_effects(
+    original_metrics: dict,
+    optimized_metrics: dict,
+    original_query: str,
+    optimized_query: str,
+    applied_indexes: list
+) -> str:
+    client = llm_connect()
+
+    try:
+        system_prompt = (
+            "Você é um especialista em performance de banco de dados. "
+            "Abaixo estão os resultados de execução de duas queries (original e otimizada) e os índices aplicados. "
+            "Sua tarefa é avaliar se as otimizações devem ser mantidas com base nos resultados, "
+            "considerando tempo, planos de execução e eficiência.\n\n"
+            "Diga de forma clara e objetiva se vale a pena manter as mudanças. "
+            "Considere possíveis riscos, ganhos marginais, impacto em outros tipos de consulta, e explique a decisão.\n\n"
+            "Responda com uma análise técnica e objetiva."
+        )
+
+        user_prompt = (
+            f"Query original:\n{original_query}\n\n"
+            f"Métricas da query original:\n{original_metrics}\n\n"
+            f"Query otimizada:\n{optimized_query}\n\n"
+            f"Métricas da query otimizada:\n{optimized_metrics}\n\n"
+            f"Índices aplicados:\n{applied_indexes}"
+        )
+
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            model="gemma2-9b-it",
+        )
+        return chat_completion.choices[0].message.content
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro ao avaliar efeitos da otimização com LLM: {str(e)}"
+        )
+
