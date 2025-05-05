@@ -88,7 +88,7 @@ async def get_result_interpretation(result: str, order: str) -> str:
             status_code=500, 
             detail=f"Erro no processamento da query com LLM: {str(e)}")
         
-async def optimize_generate(query: str, database_structure: str, order: str) -> str:
+async def optimize_generate(query: str, database_structure: str) -> str:
     client = llm_connect()
 
     try:
@@ -104,7 +104,7 @@ async def optimize_generate(query: str, database_structure: str, order: str) -> 
                         "1. Analisar a query em relação à estrutura do banco.\n"
                         "2. Sugerir comandos de otimização, como criação de índices, caso aplicável.\n"
                         "3. Reescrever a query de forma otimizada.\n\n"
-                        "Retorne uma **lista Python** com os seguintes elementos:\n"
+                        "Retorne sem explicação (Somente a lista) uma **lista Python** com os seguintes elementos:\n"
                         "- Um ou mais comandos CREATE INDEX (caso necessário).\n"
                         "- A query otimizada.\n\n"
                         "Formato de exemplo:\n"
@@ -112,12 +112,11 @@ async def optimize_generate(query: str, database_structure: str, order: str) -> 
                         "Caso nenhum índice seja necessário, retorne apenas:\n"
                         "['<query otimizada>']\n\n"
                         f"Estrutura do banco de dados:\n{database_structure}\n\n"
-                        f"Query original:\n{query}"
                     ),
                 },
                 {
                     "role": "user",
-                    "content": order,
+                    "content": f"Query original:\n{query}",
                 },
             ],
             model="gemma2-9b-it",
