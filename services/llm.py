@@ -140,7 +140,7 @@ async def create_database(database_structure: str) -> str:
                         "Você é um assistente especializado em bancos de dados relacionais. "
                         "Sua tarefa é converter uma descrição de estrutura de banco de dados em comandos SQL do tipo DDL (Data Definition Language), como CREATE TABLE.\n\n"
                         "Considere tipos de dados apropriados, chaves primárias, estrangeiras e restrições se estiverem descritas.\n\n"
-                        "Retorne **apenas os comandos SQL necessários** para criar as tabelas e relacionamentos descritos.\n\n"
+                        "Retorne **apenas os comandos SQL necessários** para criar as tabelas e relacionamentos descritos em ordem para criar (Atentar-se para não mandar criar uma chave estrangeira onde não exista a tabela).\n\n"
                         "Exemplo de resposta esperada:\n"
                         "CREATE TABLE clientes (\n"
                         "    id INT PRIMARY KEY,\n"
