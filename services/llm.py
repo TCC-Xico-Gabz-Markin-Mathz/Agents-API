@@ -183,7 +183,7 @@ async def populate_database(creation_command: str, number_insertions) -> str:
                         "Com base nos comandos SQL de criação de tabelas fornecidos (CREATE TABLE), gere comandos INSERT INTO para povoar as tabelas com dados fictícios e coerentes.\n"
                         f"- Gere até {number_insertions} inserções por tabela.\n"
                         "- Os dados devem ser consistentes com os tipos definidos (ex: datas no formato YYYY-MM-DD, nomes fictícios, e-mails realistas, IDs coerentes).\n"
-                        "- Considere os relacionamentos entre tabelas (ex: chaves estrangeiras devem apontar para registros válidos).\n\n"
+                        "- Considere os relacionamentos entre tabelas (ex: chaves estrangeiras devem apontar para registros válidos). Atente-se para enviar na ordem correta e não tentar criar um registro com chave extrangeira inexistente\n\n"
                         "Retorne apenas os comandos INSERT INTO, mas **em formato de lista Python de strings**, por exemplo:\n"
                         "[\n"
                         "    \"INSERT INTO clientes (id, nome, email) VALUES (1, 'Francisco Silva', 'francisco@email.com');\",\n"
