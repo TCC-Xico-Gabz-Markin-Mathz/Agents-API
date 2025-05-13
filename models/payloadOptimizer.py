@@ -13,6 +13,13 @@ class CreateDatabaseRequest(BaseModel):
 
 class CreateDatabaseResponse(BaseModel):
     sql: str
+    
+class PopulateDatabaseResponse(BaseModel):
+    sql: str
+    
+class PopulateDatabaseRequest(BaseModel):
+    creation_command: str
+    number_insertions: str 
 
 class OptimizationAnalysisRequest(BaseModel):
     original_metrics: Dict

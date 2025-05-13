@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 from dependencies import get_api_key
-from services.llm import optimize_generate, create_database, analyze_optimization_effects
+from services.llm import optimize_generate, create_database, populate_database, analyze_optimization_effects
 from models.payloadOptimizer import (
     OptimizerRequest,
     OptimizerResponse,
     CreateDatabaseRequest,
     CreateDatabaseResponse,
+    PopulateDatabaseResponse,
+    PopulateDatabaseRequest,
     OptimizationAnalysisRequest,
     OptimizationAnalysisResponse,
 )
@@ -28,6 +30,14 @@ async def create_db(request: CreateDatabaseRequest):
     try:
         sql = await create_database(database_structure=request.database_structure)
         return CreateDatabaseResponse(sql=sql)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@router.post("/populate", response_model=PopulateDatabaseResponse)
+async def create_db(request: PopulateDatabaseRequest):
+    try:
+        sql = await populate_database(creation_command=request.creation_command, number_insertions=request.number_insertions)
+        return PopulateDatabaseResponse(sql=sql)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
