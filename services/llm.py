@@ -194,7 +194,7 @@ async def populate_database(creation_command: str, number_insertions) -> str:
                 },
                 {
                     "role": "user",
-                    "content": create_table_sql,
+                    "content": creation_command,
                 },
             ],
             model="gemma2-9b-it",
