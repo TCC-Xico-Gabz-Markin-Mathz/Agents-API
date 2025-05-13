@@ -169,6 +169,44 @@ async def create_database(database_structure: str) -> str:
             detail=f"Erro no processamento da estrutura do banco com LLM: {str(e)}"
         )
         
+async def populate_database(creation_command: str, number_insertions) -> str:
+    client = llm_connect()
+
+    try:
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "Você é um assistente especializado em bancos de dados relacionais.\n"
+                        "Sua tarefa é gerar comandos SQL de exemplo para popular um banco de dados já estruturado.\n\n"
+                        "Com base nos comandos SQL de criação de tabelas fornecidos (CREATE TABLE), gere comandos INSERT INTO para povoar as tabelas com dados fictícios e coerentes.\n"
+                        f"- Gere até {number_insertions} inserções por tabela.\n"
+                        "- Os dados devem ser consistentes com os tipos definidos (ex: datas no formato YYYY-MM-DD, nomes fictícios, e-mails realistas, IDs coerentes).\n"
+                        "- Considere os relacionamentos entre tabelas (ex: chaves estrangeiras devem apontar para registros válidos).\n\n"
+                        "Retorne apenas os comandos INSERT INTO, mas **em formato de lista Python de strings**, por exemplo:\n"
+                        "[\n"
+                        "    \"INSERT INTO clientes (id, nome, email) VALUES (1, 'Francisco Silva', 'francisco@email.com');\",\n"
+                        "    \"INSERT INTO clientes (id, nome, email) VALUES (2, 'Laura Lima', 'laura@email.com');\",\n"
+                        "    ...\n"
+                        "]"
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": create_table_sql,
+                },
+            ],
+            model="gemma2-9b-it",
+        )
+
+        return chat_completion.choices[0].message.content
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Erro no processamento da estrutura do banco com LLM: {str(e)}"
+        )
+        
 def analyze_optimization_effects(
     original_metrics: dict,
     optimized_metrics: dict,
