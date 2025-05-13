@@ -19,7 +19,7 @@ class PopulateDatabaseResponse(BaseModel):
     
 class PopulateDatabaseRequest(BaseModel):
     creation_command: str
-    number_insertions: str 
+    number_insertions: int 
 
 class OptimizationAnalysisRequest(BaseModel):
     original_metrics: Dict
