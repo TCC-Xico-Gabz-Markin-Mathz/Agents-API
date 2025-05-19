@@ -6,32 +6,39 @@ from services.db import connect
 from services.groq import llm_connect
 from models.llmModel import ContextOut
 
-model = SentenceTransformer('all-mpnet-base-v2')
+model = SentenceTransformer("all-mpnet-base-v2")
+
 
 def transform_vector(vector: str) -> List[float]:
     return model.encode([vector])[0]
 
+
 async def retrieve_context(query: str) -> List[ContextOut]:
     contexts: List[ContextOut] = []
     query_vector = transform_vector(query)
-    
+
     try:
-        client = connect() 
+        client = connect()
         results = client.search(
-            collection_name="rag_queries",
-            query_vector=query_vector.tolist(),
-            limit=2
+            collection_name="rag_queries", query_vector=query_vector.tolist(), limit=2
         )
-        
+
         for result in results:
-            contexts.append(ContextOut(id=result.id, score=result.score, payload=result.payload))
-        
+            contexts.append(
+                ContextOut(id=result.id, score=result.score, payload=result.payload)
+            )
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao recuperar contexto: {str(e)}")
-    
+        raise HTTPException(
+            status_code=500, detail=f"Erro ao recuperar contexto: {str(e)}"
+        )
+
     return contexts
 
-async def get_sql_query_with_database_structure(database_structure: str, order: str) -> str:
+
+async def get_sql_query_with_database_structure(
+    database_structure: str, order: str
+) -> str:
     client = llm_connect()
 
     try:
@@ -56,9 +63,9 @@ async def get_sql_query_with_database_structure(database_structure: str, order: 
         return chat_completion.choices[0].message.content
     except Exception as e:
         raise HTTPException(
-            status_code=500, 
-            detail=f"Erro no processamento da query com LLM: {str(e)}"
+            status_code=500, detail=f"Erro no processamento da query com LLM: {str(e)}"
         )
+
 
 async def get_result_interpretation(result: str, order: str) -> str:
     client = llm_connect()
@@ -85,9 +92,10 @@ async def get_result_interpretation(result: str, order: str) -> str:
         return chat_completion.choices[0].message.content
     except Exception as e:
         raise HTTPException(
-            status_code=500, 
-            detail=f"Erro no processamento da query com LLM: {str(e)}")
-        
+            status_code=500, detail=f"Erro no processamento da query com LLM: {str(e)}"
+        )
+
+
 async def optimize_generate(query: str, database_structure: str) -> str:
     client = llm_connect()
 
@@ -124,9 +132,9 @@ async def optimize_generate(query: str, database_structure: str) -> str:
         return chat_completion.choices[0].message.content
     except Exception as e:
         raise HTTPException(
-            status_code=500, 
-            detail=f"Erro no processamento da query com LLM: {str(e)}"
+            status_code=500, detail=f"Erro no processamento da query com LLM: {str(e)}"
         )
+
 
 async def create_database(database_structure: str) -> str:
     client = llm_connect()
@@ -137,11 +145,12 @@ async def create_database(database_structure: str) -> str:
                 {
                     "role": "system",
                     "content": (
-                        "Você é um assistente especializado em bancos de dados relacionais. "
-                        "Sua tarefa é converter uma descrição de estrutura de banco de dados em comandos SQL do tipo DDL (Data Definition Language), como CREATE TABLE.\n\n"
-                        "Considere tipos de dados apropriados, chaves primárias, estrangeiras e restrições se estiverem descritas.\n\n"
-                        "Retorne **apenas os comandos SQL necessários** para criar as tabelas e relacionamentos descritos em ordem para criar (Atentar-se para não mandar criar uma chave estrangeira onde não exista a tabela).\n\n"
-                        "Exemplo de resposta esperada:\n"
+                        "- Você é um assistente especializado em bancos de dados relacionais. "
+                        "- Sua tarefa é converter uma descrição de estrutura de banco de dados em comandos SQL do tipo DDL (Data Definition Language), como CREATE TABLE.\n\n"
+                        "- Considere tipos de dados apropriados, chaves primárias, estrangeiras e restrições se estiverem descritas.\n\n"
+                        "- Retorne **apenas os comandos SQL necessários** para criar as tabelas e relacionamentos descritos em ordem para criar.\n\n"
+                        "- Importante: Retorne na ordem de criação correta.\n"
+                        "- Exemplo de resposta esperada:\n"
                         "CREATE TABLE clientes (\n"
                         "    id INT PRIMARY KEY,\n"
                         "    nome VARCHAR(255),\n"
@@ -165,10 +174,11 @@ async def create_database(database_structure: str) -> str:
         return chat_completion.choices[0].message.content
     except Exception as e:
         raise HTTPException(
-            status_code=500, 
-            detail=f"Erro no processamento da estrutura do banco com LLM: {str(e)}"
+            status_code=500,
+            detail=f"Erro no processamento da estrutura do banco com LLM: {str(e)}",
         )
-        
+
+
 async def populate_database(creation_command: str, number_insertions) -> str:
     client = llm_connect()
 
@@ -203,16 +213,17 @@ async def populate_database(creation_command: str, number_insertions) -> str:
         return chat_completion.choices[0].message.content
     except Exception as e:
         raise HTTPException(
-            status_code=500, 
-            detail=f"Erro no processamento da estrutura do banco com LLM: {str(e)}"
+            status_code=500,
+            detail=f"Erro no processamento da estrutura do banco com LLM: {str(e)}",
         )
-        
+
+
 def analyze_optimization_effects(
     original_metrics: dict,
     optimized_metrics: dict,
     original_query: str,
     optimized_query: str,
-    applied_indexes: list
+    applied_indexes: list,
 ) -> str:
     client = llm_connect()
 
@@ -246,6 +257,5 @@ def analyze_optimization_effects(
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Erro ao avaliar efeitos da otimização com LLM: {str(e)}"
+            detail=f"Erro ao avaliar efeitos da otimização com LLM: {str(e)}",
         )
-
