@@ -1,6 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from dependencies import get_api_key
-from services.llm import optimize_generate, create_database, populate_database, analyze_optimization_effects
+from services.llm import (
+    optimize_generate,
+    create_database,
+    populate_database,
+    analyze_optimization_effects,
+)
 from models.payloadOptimizer import (
     OptimizerRequest,
     OptimizerResponse,
@@ -12,7 +17,10 @@ from models.payloadOptimizer import (
     OptimizationAnalysisResponse,
 )
 
-router = APIRouter(prefix="/optimizer", tags=["Optimizer"], dependencies=[Depends(get_api_key)])
+router = APIRouter(
+    prefix="/optimizer", tags=["Optimizer"], dependencies=[Depends(get_api_key)]
+)
+
 
 @router.post("/generate", response_model=OptimizerResponse)
 async def optimize_query(request: OptimizerRequest):
@@ -25,6 +33,7 @@ async def optimize_query(request: OptimizerRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.post("/create-database", response_model=CreateDatabaseResponse)
 async def create_db(request: CreateDatabaseRequest):
     try:
@@ -32,14 +41,19 @@ async def create_db(request: CreateDatabaseRequest):
         return CreateDatabaseResponse(sql=sql)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
+
+
 @router.post("/populate", response_model=PopulateDatabaseResponse)
-async def create_db(request: PopulateDatabaseRequest):
+async def populate_db(request: PopulateDatabaseRequest):
     try:
-        sql = await populate_database(creation_command=request.creation_command, number_insertions=request.number_insertions)
+        sql = await populate_database(
+            creation_command=request.creation_command,
+            number_insertions=request.number_insertions,
+        )
         return PopulateDatabaseResponse(sql=sql)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/analyze", response_model=OptimizationAnalysisResponse)
 async def analyze(request: OptimizationAnalysisRequest):
@@ -49,7 +63,7 @@ async def analyze(request: OptimizationAnalysisRequest):
             optimized_metrics=request.optimized_metrics,
             original_query=request.original_query,
             optimized_query=request.optimized_query,
-            applied_indexes=request.applied_indexes
+            applied_indexes=request.applied_indexes,
         )
         return OptimizationAnalysisResponse(analysis=result)
     except Exception as e:
