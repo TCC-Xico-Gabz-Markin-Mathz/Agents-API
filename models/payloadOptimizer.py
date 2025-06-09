@@ -1,25 +1,32 @@
 from pydantic import BaseModel
 from typing import List, Dict
 
+
 class OptimizerRequest(BaseModel):
     query: str
     database_structure: str
 
+
 class OptimizerResponse(BaseModel):
-    result: str
+    result: List[str]
+
 
 class CreateDatabaseRequest(BaseModel):
     database_structure: str
 
+
 class CreateDatabaseResponse(BaseModel):
     sql: str
-    
+
+
 class PopulateDatabaseResponse(BaseModel):
     sql: str
-    
+
+
 class PopulateDatabaseRequest(BaseModel):
     creation_command: str
-    number_insertions: int 
+    number_insertions: int
+
 
 class OptimizationAnalysisRequest(BaseModel):
     original_metrics: Dict
@@ -27,6 +34,7 @@ class OptimizationAnalysisRequest(BaseModel):
     original_query: str
     optimized_query: str
     applied_indexes: List[str]
+
 
 class OptimizationAnalysisResponse(BaseModel):
     analysis: str
