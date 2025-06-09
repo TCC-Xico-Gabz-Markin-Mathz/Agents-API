@@ -1,3 +1,5 @@
+import ast
+import re
 from fastapi import HTTPException
 from typing import List
 from sentence_transformers import SentenceTransformer
@@ -105,21 +107,39 @@ async def optimize_generate(query: str, database_structure: str) -> str:
                 {
                     "role": "system",
                     "content": (
-                        "Você é um assistente especializado em SQL e otimização de desempenho de queries. A seguir, você receberá:\n\n"
-                        "- A estrutura do banco de dados.\n"
-                        "- Uma query SQL que precisa ser otimizada.\n\n"
-                        "Sua tarefa é:\n"
-                        "1. Analisar a query em relação à estrutura do banco.\n"
-                        "2. Sugerir comandos de otimização, como criação de índices, caso aplicável.\n"
-                        "3. Reescrever a query de forma otimizada.\n\n"
-                        "Retorne sem explicação (Somente a lista) uma **lista Python** com os seguintes elementos:\n"
-                        "- Um ou mais comandos CREATE INDEX (caso necessário).\n"
-                        "- A query otimizada.\n\n"
-                        "Formato de exemplo:\n"
-                        "['CREATE INDEX idx_cliente_id ON pedidos(cliente_id);', 'SELECT * FROM pedidos WHERE cliente_id = 123;']\n\n"
-                        "Caso nenhum índice seja necessário, retorne apenas:\n"
-                        "['<query otimizada>']\n\n"
-                        f"Estrutura do banco de dados:\n{database_structure}\n\n"
+                        "## Assistente Especializado em SQL e Otimização de Queries\n\n"
+                        "Você é um **assistente especializado em SQL** e **otimização de desempenho de queries**. A seguir, você receberá:\n"
+                        "* A **estrutura do banco de dados**\n"
+                        "* Uma **query SQL** que precisa ser otimizada\n"
+                        "---\n"
+                        "### Tarefa\n"
+                        "1. **Analisar** a query fornecida com base na estrutura do banco\n"
+                        "2. **Sugerir comandos de otimização**, como criação de índices (`CREATE INDEX`), se necessário\n"
+                        "3. **Reescrever a query** de forma mais eficiente, mantendo o mesmo resultado\n"
+                        "---\n"
+                        "### Formato da Resposta\n"
+                        "* Retorne **apenas um JSON** com um **array de strings**, **sem explicações**\n"
+                        "* O array deve conter, na ordem:\n"
+                        "  1. **Comandos `CREATE INDEX`** (caso necessário)\n"
+                        "  2. A **query otimizada**\n"
+                        "#### Exemplos\n"
+                        "**Com índices:**\n"
+                        "[\n"
+                        '  "CREATE INDEX idx_cliente_id ON pedidos(cliente_id);",\n'
+                        '  "SELECT * FROM pedidos WHERE cliente_id = 123;"\n'
+                        "]\n"
+                        "**Sem necessidade de índices:**\n"
+                        "[\n"
+                        "  \"SELECT * FROM pedidos WHERE name = 'name';\"\n"
+                        "]\n"
+                        "---\n"
+                        "### Estrutura do Banco de Dados\n"
+                        f"{database_structure}\n"
+                        "---\n"
+                        "### Observações\n"
+                        "* **Não inclua nenhuma explicação na resposta**\n"
+                        "* Apenas o JSON com os comandos SQL e a query otimizada, conforme os exemplos acima\n"
+                        "* Não retorne nenhum demarcador de bloco de código markdown\n"
                     ),
                 },
                 {
@@ -129,7 +149,21 @@ async def optimize_generate(query: str, database_structure: str) -> str:
             ],
             model="gemma2-9b-it",
         )
-        return chat_completion.choices[0].message.content
+        response_str = chat_completion.choices[0].message.content
+
+        response_str = re.sub(r"\\'", "'", response_str)
+        response_str = response_str.replace("‘", "'").replace("’", "'")  # aspas unicode
+        response_str = response_str.replace("“", '"').replace(
+            "”", '"'
+        )  # aspas duplas unicode
+
+        try:
+            response_list = ast.literal_eval(response_str)
+            for item in response_list:
+                print(item)
+        except (SyntaxError, ValueError):
+            print("A resposta do LLM não pôde ser convertida para uma lista Python.")
+        return response_list
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Erro no processamento da query com LLM: {str(e)}"
