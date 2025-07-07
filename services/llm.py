@@ -229,6 +229,9 @@ class LLMService:
                             "    \"INSERT INTO clientes (id, nome, email) VALUES (2, 'Laura Lima', 'laura@email.com');\",\n"
                             "    ...\n"
                             "]"
+                            "### Observações\n"
+                            "* Apenas a lista de strings com os comandos SQL, conforme os exemplos acima\n"
+                            "* Não retorne nenhum demarcador de bloco de código markdown como ```json ou ```sql\n"
                         ),
                     },
                     {
