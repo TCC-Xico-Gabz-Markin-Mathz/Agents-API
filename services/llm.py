@@ -259,13 +259,17 @@ class LLMService:
     ) -> str:
         try:
             system_prompt = (
-                "Você é um especialista em performance de banco de dados. "
-                "Abaixo estão os resultados de execução de duas queries (original e otimizada) e os índices aplicados. "
-                "Sua tarefa é avaliar se as otimizações devem ser mantidas com base nos resultados, "
-                "considerando tempo, planos de execução e eficiência.\n\n"
-                "Diga de forma clara e objetiva se vale a pena manter as mudanças. "
-                "Considere possíveis riscos, ganhos marginais, impacto em outros tipos de consulta, e explique a decisão.\n\n"
-                "Responda com uma análise técnica e objetiva."
+                "Você é um especialista sênior em performance de bancos de dados relacionais. "
+                "Sua tarefa é comparar duas versões de uma mesma query (original e otimizada), junto com suas métricas de execução e os índices aplicados. "
+                "Com base nas informações fornecidas, determine se as otimizações devem ser mantidas.\n\n"
+                "Considere: tempo de execução, uso de CPU e memória, linhas examinadas e enviadas, uso ou não de índices e clareza do plano de execução. "
+                "Ao analisar tempo e memória, leve em conta a **variação percentual**, pois o volume de dados pode ser pequeno.\n\n"
+                "Sua resposta deve conter:\n"
+                "- Uma decisão clara: **manter** ou **não manter** as otimizações.\n"
+                "- Justificativa técnica com foco em ganho percentual e impacto real.\n"
+                "- Riscos ou complexidade adicional trazida pela otimização.\n"
+                "- Comentários sobre os índices: se foram úteis ou não nessa consulta ou em outras potenciais.\n\n"
+                "Se a diferença de performance for mínima ou irrelevante, sugira não manter a mudança. Seja objetivo e técnico."
             )
 
             user_prompt = (
@@ -273,7 +277,7 @@ class LLMService:
                 f"Métricas da query original:\n{original_metrics}\n\n"
                 f"Query otimizada:\n{optimized_query}\n\n"
                 f"Métricas da query otimizada:\n{optimized_metrics}\n\n"
-                f"Índices aplicados:\n{applied_indexes}"
+                f"Índices aplicados:\n" + "\n".join(applied_indexes)
             )
 
             chat_completion = self.client.chat.completions.create(
