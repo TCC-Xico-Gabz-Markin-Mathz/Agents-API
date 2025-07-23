@@ -18,9 +18,8 @@ class CreateDatabaseRequest(BaseModel):
 class CreateDatabaseResponse(BaseModel):
     sql: List[str]
 
-
 class PopulateDatabaseResponse(BaseModel):
-    sql: str
+    sql: List[str]
 
 
 class PopulateDatabaseRequest(BaseModel):
