@@ -43,3 +43,6 @@ class OptimizationAnalysisResponse(BaseModel):
 class WeightRequest(BaseModel):
     ram_gb: int = None
     priority: str = None
+
+class WeightResponse(BaseModel):
+    result: str

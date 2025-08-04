@@ -166,22 +166,22 @@ class GroqLLM:
 
                 Considerando o contexto acima, gere os pesos w1 a w8 para refletir o custo real das queries nesse ambiente.
 
-                Retorne apenas os pesos no formato JSON, garantindo que a soma dos pesos seja 1.0, assim:
+                Retorne apenas os pesos no formato JSON, sem comentário extras, garantindo que a soma dos pesos seja 1.0, assim:
 
                 {{
-                "tempo_execucao": 0.25,
-                "uso_cpu": 0.2,
-                "uso_io": 0.15,
-                "linhas_lidas": 0.15,
-                "frequencia_execucao": 0.1,
-                "tamanho_tabela": 0.05,
-                "tabelas_sem_indice": 0.05,
-                "colisoes_em_join": 0.05
+                "tempo_execucao": number,
+                "uso_cpu": number,
+                "uso_io": number,
+                "linhas_lidas": number,
+                "frequencia_execucao": number,
+                "tamanho_tabela": number,
+                "tabelas_sem_indice": number,
+                "colisoes_em_join": number
                 }}
                 """
 
-            chat_completion = await self.client.chat.completions.create(
-                model="gpt-4o-mini",
+            chat_completion = self.client.chat.completions.create(
+                model=self.model,
                 messages=[
                     {
                         "role": "system",
@@ -200,7 +200,6 @@ class GroqLLM:
             )
 
             content = chat_completion.choices[0].message.content
-            print(content)
             return content
 
         except Exception as e:

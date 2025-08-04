@@ -13,6 +13,7 @@ from models.payloadOptimizer import (
     OptimizationAnalysisRequest,
     OptimizationAnalysisResponse,
     WeightRequest,
+    WeightResponse,
 )
 
 router = APIRouter(
@@ -85,15 +86,18 @@ async def analyze(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/weights", response_model=OptimizationAnalysisResponse)
+@router.post("/weights")
 async def weights(
     request: WeightRequest,
     model_name: str = Query("default", description="Nome do modelo LLM a usar"),
 ):
     try:
         llm = get_llm(model_name)
+        
         result = await llm.get_weights(ram_gb=request.ram_gb, priority=request.priority)
-        # return OptimizationAnalysisResponse(analysis=result)
-        return result
+
+        cleaned = re.sub(r"```(?:json)?", "", result).strip("`\n ")
+
+        return WeightResponse(result=cleaned)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
