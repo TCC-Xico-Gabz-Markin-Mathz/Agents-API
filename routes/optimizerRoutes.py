@@ -12,11 +12,13 @@ from models.payloadOptimizer import (
     PopulateDatabaseRequest,
     OptimizationAnalysisRequest,
     OptimizationAnalysisResponse,
+    WeightRequest,
 )
 
 router = APIRouter(
     prefix="/optimizer", tags=["Optimizer"], dependencies=[Depends(get_api_key)]
 )
+
 
 @router.post("/generate", response_model=OptimizerResponse)
 async def optimize_query(
@@ -41,12 +43,11 @@ async def create_db(
 ):
     try:
         llm = get_llm(model_name)
-        sql = await llm.create_database(
-            database_structure=request.database_structure
-        )
+        sql = await llm.create_database(database_structure=request.database_structure)
         return CreateDatabaseResponse(sql=sql)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/populate", response_model=PopulateDatabaseResponse)
 async def populate_db(request: PopulateDatabaseRequest, model_name: str = "groq"):
@@ -80,5 +81,19 @@ async def analyze(
             applied_indexes=request.applied_indexes,
         )
         return OptimizationAnalysisResponse(analysis=result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/weights", response_model=OptimizationAnalysisResponse)
+async def weights(
+    request: WeightRequest,
+    model_name: str = Query("default", description="Nome do modelo LLM a usar"),
+):
+    try:
+        llm = get_llm(model_name)
+        result = await llm.get_weights(ram_gb=request.ram_gb, priority=request.priority)
+        # return OptimizationAnalysisResponse(analysis=result)
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
