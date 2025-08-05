@@ -44,7 +44,6 @@ class WeightRequest(BaseModel):
     ram_gb: int = None
     priority: str = None
 
-from typing import Dict
 
 class WeightResponse(BaseModel):
     result: Dict
