@@ -96,8 +96,10 @@ async def weights(
         
         result = await llm.get_weights(ram_gb=request.ram_gb, priority=request.priority)
 
-        cleaned = re.sub(r"```(?:json)?", "", result).strip("`\n ")
+        cleaned = re.sub(r"```(?:json)?", "", result).strip("`")
 
-        return WeightResponse(result=cleaned)
+        cleaned_json = json.loads(cleaned)
+
+        return WeightResponse(result=cleaned_json)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

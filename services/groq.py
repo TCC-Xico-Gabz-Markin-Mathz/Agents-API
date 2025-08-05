@@ -11,7 +11,6 @@ api_key = os.getenv("GROQ_API_KEY")
 
 def llm_connect():
     try:
-        print(api_key)
         client = Groq(api_key=api_key)
         if client:
             logger.info("Conexão com o Groq estabelecida com sucesso.")
