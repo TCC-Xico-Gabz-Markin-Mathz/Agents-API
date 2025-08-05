@@ -1,9 +1,7 @@
 from fastapi import HTTPException
-from typing import List
 
 from helpers.helpers import process_llm_output
 from services.groq import llm_connect
-from models.llmModel import ContextOut
 
 
 class LLMService:

@@ -9,7 +9,9 @@ class GroqLLM:
         self.attempt = 0
         self.model = "gemma2-9b-it"
 
-    async def get_sql_query_with_database_structure(self, database_structure: str, order: str) -> str:
+    async def get_sql_query_with_database_structure(
+        self, database_structure: str, order: str
+    ) -> str:
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -49,7 +51,9 @@ class GroqLLM:
             )
             return response.choices[0].message.content
         except Exception as e:
-            raise HTTPException(500, f"Erro ao interpretar resultado com Groq: {str(e)}")
+            raise HTTPException(
+                500, f"Erro ao interpretar resultado com Groq: {str(e)}"
+            )
 
     async def optimize_generate(self, query: str, database_structure: str) -> str:
         try:
@@ -93,9 +97,13 @@ class GroqLLM:
             )
             return process_llm_output(response.choices[0].message.content)
         except Exception as e:
-            raise HTTPException(500, f"Erro ao gerar estrutura de banco com Groq: {str(e)}")
+            raise HTTPException(
+                500, f"Erro ao gerar estrutura de banco com Groq: {str(e)}"
+            )
 
-    async def populate_database(self, creation_command: str, number_insertions: int) -> str:
+    async def populate_database(
+        self, creation_command: str, number_insertions: int
+    ) -> str:
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -145,3 +153,54 @@ class GroqLLM:
             return response.choices[0].message.content
         except Exception as e:
             raise HTTPException(500, f"Erro ao analisar otimização com Groq: {str(e)}")
+
+    async def get_weights(self, ram_gb: int = None, priority: str = None) -> str:
+        try:
+            prompt = f"""
+                {"O banco possui cerca de " + ram_gb + " de RAM disponível para operações." if ram_gb else ""}
+                {"A prioridade do sistema é: " + priority + "." if priority else ""}
+
+                Quero calcular um score de custo para queries SQL usando a fórmula:
+
+                score = w1 * tempo_execucao + w2 * uso_cpu + w3 * uso_io + w4 * linhas_lidas + w5 * frequencia_execucao + w6 * tamanho_tabela + w7 * tabelas_sem_indice + w8 * colisoes_em_join
+
+                Considerando o contexto acima, gere os pesos w1 a w8 para refletir o custo real das queries nesse ambiente.
+
+                Retorne apenas os pesos no formato JSON, sem comentário extras, garantindo que a soma dos pesos seja 1.0, assim:
+
+                {{
+                "tempo_execucao": number,
+                "uso_cpu": number,
+                "uso_io": number,
+                "linhas_lidas": number,
+                "frequencia_execucao": number,
+                "tamanho_tabela": number,
+                "tabelas_sem_indice": number,
+                "colisoes_em_join": number
+                }}
+                """
+
+            chat_completion = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "Você é um especialista em performance de banco de dados.\n"
+                            "Sua tarefa é gerar pesos para um modelo de score de queries SQL,\n"
+                            "considerando dados de infraestrutura e perfil de uso.\n"
+                            "Forneça apenas um JSON com os pesos normalizados."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt,
+                    },
+                ],
+            )
+
+            content = chat_completion.choices[0].message.content
+            return content
+
+        except Exception as e:
+            raise Exception(f"Erro ao gerar pesos com LLM: {e}")
