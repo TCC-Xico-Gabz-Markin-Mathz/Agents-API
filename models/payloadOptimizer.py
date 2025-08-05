@@ -18,8 +18,10 @@ class CreateDatabaseRequest(BaseModel):
 class CreateDatabaseResponse(BaseModel):
     sql: List[str]
 
+
 class PopulateDatabaseResponse(BaseModel):
     sql: List[str]
+
 
 class PopulateDatabaseRequest(BaseModel):
     creation_command: str
@@ -36,3 +38,13 @@ class OptimizationAnalysisRequest(BaseModel):
 
 class OptimizationAnalysisResponse(BaseModel):
     analysis: str
+
+
+class WeightRequest(BaseModel):
+    ram_gb: int = None
+    priority: str = None
+
+from typing import Dict
+
+class WeightResponse(BaseModel):
+    result: Dict

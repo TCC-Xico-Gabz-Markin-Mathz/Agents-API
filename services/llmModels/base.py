@@ -1,11 +1,11 @@
 from abc import ABC, abstractmethod
-from typing import List
-from models.llmModel import ContextOut
+
 
 class BaseLLMService(ABC):
-
     @abstractmethod
-    async def get_sql_query_with_database_structure(self, database_structure: str, order: str) -> str:
+    async def get_sql_query_with_database_structure(
+        self, database_structure: str, order: str
+    ) -> str:
         pass
 
     @abstractmethod
@@ -21,7 +21,9 @@ class BaseLLMService(ABC):
         pass
 
     @abstractmethod
-    async def populate_database(self, creation_command: str, number_insertions: int) -> str:
+    async def populate_database(
+        self, creation_command: str, number_insertions: int
+    ) -> str:
         pass
 
     @abstractmethod
@@ -33,4 +35,8 @@ class BaseLLMService(ABC):
         optimized_query: str,
         applied_indexes: list,
     ) -> str:
+        pass
+
+    @abstractmethod
+    async def get_weights(self, ram_gb: int = None, priority: str = None) -> str:
         pass
