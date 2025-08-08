@@ -20,7 +20,7 @@ class CreateDatabaseResponse(BaseModel):
 
 
 class PopulateDatabaseResponse(BaseModel):
-    sql: str
+    sql: List[str]
 
 
 class PopulateDatabaseRequest(BaseModel):
@@ -38,3 +38,12 @@ class OptimizationAnalysisRequest(BaseModel):
 
 class OptimizationAnalysisResponse(BaseModel):
     analysis: str
+
+
+class WeightRequest(BaseModel):
+    ram_gb: int = None
+    priority: str = None
+
+
+class WeightResponse(BaseModel):
+    result: Dict

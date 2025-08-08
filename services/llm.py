@@ -1,43 +1,13 @@
 from fastapi import HTTPException
-from typing import List
-from sentence_transformers import SentenceTransformer
 
 from helpers.helpers import process_llm_output
 from services.groq import llm_connect
-from models.llmModel import ContextOut
 
 
 class LLMService:
     def __init__(self):
         self.client = llm_connect()
-        self.model = SentenceTransformer("all-mpnet-base-v2")
         self.attempt = 0
-
-    def transform_vector(self, vector: str) -> List[float]:
-        return self.model.encode([vector])[0]
-
-    async def retrieve_context(self, query: str) -> List[ContextOut]:
-        contexts: List[ContextOut] = []
-        query_vector = self.transform_vector(query)
-
-        try:
-            results = self.client.search(
-                collection_name="rag_queries",
-                query_vector=query_vector.tolist(),
-                limit=2,
-            )
-
-            for result in results:
-                contexts.append(
-                    ContextOut(id=result.id, score=result.score, payload=result.payload)
-                )
-
-        except Exception as e:
-            raise HTTPException(
-                status_code=500, detail=f"Erro ao recuperar contexto: {str(e)}"
-            )
-
-        return contexts
 
     async def get_sql_query_with_database_structure(
         self, database_structure: str, order: str
