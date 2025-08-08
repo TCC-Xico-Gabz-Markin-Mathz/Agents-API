@@ -3,3 +3,4 @@
 *.ipynb
 venv
 teste.py
+.env
