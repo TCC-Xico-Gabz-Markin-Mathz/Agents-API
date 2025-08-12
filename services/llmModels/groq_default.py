@@ -1,6 +1,8 @@
+import json
 from fastapi import HTTPException
 from helpers.helpers import process_llm_output
 from services.groq import llm_connect
+from helpers.helpers import generate_inserts
 
 
 class GroqLLM:
@@ -101,26 +103,12 @@ class GroqLLM:
                 500, f"Erro ao gerar estrutura de banco com Groq: {str(e)}"
             )
 
-    async def populate_database(
-        self, creation_command: str, number_insertions: int
-    ) -> str:
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": (
-                            f"Você é um assistente especializado em gerar dados fictícios coerentes com comandos CREATE TABLE. "
-                            f"Gere até {number_insertions} comandos INSERT INTO por tabela, em formato de lista de strings JSON, sem explicações."
-                        ),
-                    },
-                    {"role": "user", "content": creation_command},
-                ],
-            )
-            return response.choices[0].message.content
-        except Exception as e:
-            raise HTTPException(500, f"Erro ao popular banco com Groq: {str(e)}")
+    async def populate_database(self, creation_commands: list, number_insertions: int) -> str:
+        inserts = []
+        fk_values = {}
+        for creation_command in creation_commands:
+            inserts.append(generate_inserts(creation_command, number_insertions, fk_values))
+        return json.dumps(inserts, ensure_ascii=False)
 
     def analyze_optimization_effects(
         self,

@@ -4,7 +4,7 @@ import httpx
 from fastapi import HTTPException
 from typing import List
 from services.llmModels import BaseLLMService
-from helpers.helpers import process_llm_output
+from helpers.helpers import generate_inserts, process_llm_output
 
 
 class OpenRouterBaseLLMService(BaseLLMService):
@@ -107,21 +107,22 @@ class OpenRouterBaseLLMService(BaseLLMService):
         raw = await self._chat(messages)
         return process_llm_output(raw)
 
-    async def populate_database(self, creation_command: str, number_insertions: int) -> str:
-        messages = [
-            {
-                "role": "system",
-                "content": (
-                    "Você é um assistente especializado em bancos de dados relacionais. "
-                    "Com base no seguinte script de criação, gere comandos INSERT INTO consistentes e realistas. "
-                    f"Gere até {number_insertions} por tabela. "
-                    "Retorne em formato de lista JSON de strings SQL (sem explicações nem markdown)."
-                    f"\n\n{creation_command}"
-                )
-            }
-        ]
-        raw = await self._chat(messages)
-        return raw
+
+    async def populate_database(self, creation_commands: list, number_insertions: int) -> str:
+        inserts = []
+        fk_values = {
+            "VARCHAR": [],
+            "INT": [],
+        }
+        
+        for count in range(number_insertions):
+            fk_values["VARCHAR"].append(f"fk_value_{count}")
+            fk_values["INT"].append(count + 1)
+            
+        for creation_command in creation_commands:
+            inserts.append(generate_inserts(creation_command, number_insertions, fk_values))
+        return json.dumps(inserts, ensure_ascii=False)
+
 
     def analyze_optimization_effects(
         self,
@@ -153,3 +154,97 @@ class OpenRouterBaseLLMService(BaseLLMService):
         ]
         import asyncio
         return asyncio.run(self._chat(messages))
+
+    async def get_weights(self, ram_gb: int = None, priority: str = None) -> str:
+        try:
+            prompt = f"""
+                {"O banco possui cerca de " + ram_gb + " de RAM disponível para operações." if ram_gb else ""}
+                {"A prioridade do sistema é: " + priority + "." if priority else ""}
+
+                Quero calcular um score de custo para queries SQL usando a fórmula:
+
+                score = w1 * tempo_execucao + w2 * uso_cpu + w3 * uso_io + w4 * linhas_lidas + w5 * frequencia_execucao + w6 * tamanho_tabela + w7 * tabelas_sem_indice + w8 * colisoes_em_join
+
+                Considerando o contexto acima, gere os pesos w1 a w8 para refletir o custo real das queries nesse ambiente.
+
+                Retorne apenas os pesos no formato JSON, sem comentário extras, garantindo que a soma dos pesos seja 1.0, assim:
+
+                {{
+                "tempo_execucao": number,
+                "uso_cpu": number,
+                "uso_io": number,
+                "linhas_lidas": number,
+                "frequencia_execucao": number,
+                "tamanho_tabela": number,
+                "tabelas_sem_indice": number,
+                "colisoes_em_join": number
+                }}
+                """
+
+            chat_completion = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "Você é um especialista em performance de banco de dados.\n"
+                            "Sua tarefa é gerar pesos para um modelo de score de queries SQL,\n"
+                            "considerando dados de infraestrutura e perfil de uso.\n"
+                            "Forneça apenas um JSON com os pesos normalizados."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt,
+                    },
+                ],
+            )
+
+            content = chat_completion.choices[0].message.content
+            return content
+
+        except Exception as e:
+            raise Exception(f"Erro ao gerar pesos com LLM: {e}")
+        
+    async def get_weights(self, ram_gb: int = None, priority: str = None) -> str:
+        try:
+            prompt = f"""
+                {"O banco possui cerca de " + ram_gb + " de RAM disponível para operações." if ram_gb else ""}
+                {"A prioridade do sistema é: " + priority + "." if priority else ""}
+
+                Quero calcular um score de custo para queries SQL usando a fórmula:
+
+                score = w1 * tempo_execucao + w2 * uso_cpu + w3 * uso_io + w4 * linhas_lidas + w5 * frequencia_execucao + w6 * tamanho_tabela + w7 * tabelas_sem_indice + w8 * colisoes_em_join
+
+                Considerando o contexto acima, gere os pesos w1 a w8 para refletir o custo real das queries nesse ambiente.
+
+                Retorne apenas os pesos no formato JSON, sem comentário extras, garantindo que a soma dos pesos seja 1.0, assim:
+
+                {{
+                "tempo_execucao": number,
+                "uso_cpu": number,
+                "uso_io": number,
+                "linhas_lidas": number,
+                "frequencia_execucao": number,
+                "tamanho_tabela": number,
+                "tabelas_sem_indice": number,
+                "colisoes_em_join": number
+                }}
+            """
+            
+            messages = [
+                {
+                    "role": "system",
+                    "content": (
+                        "Você é um especialista em performance de banco de dados.\n"
+                        "Sua tarefa é gerar pesos para um modelo de score de queries SQL,\n"
+                        "considerando dados de infraestrutura e perfil de uso.\n"
+                        "Forneça apenas um JSON com os pesos normalizados."
+                    )
+                }
+            ]
+            
+            raw = await self._chat(messages)
+            return raw
+        except Exception as e:
+            raise Exception(f"Erro ao gerar pesos com LLM: {e}")
