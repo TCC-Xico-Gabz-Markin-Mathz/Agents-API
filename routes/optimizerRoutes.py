@@ -50,11 +50,11 @@ async def create_db(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/populate", response_model=PopulateDatabaseResponse)
+@router.post("/populate")
 async def populate_db(request: PopulateDatabaseRequest, model_name: str = "groq"):
     try:
         sql_raw = await get_llm(model_name).populate_database(
-            creation_command=request.creation_command,
+            creation_commands=request.creation_command,
             number_insertions=request.number_insertions,
         )
 
@@ -62,11 +62,11 @@ async def populate_db(request: PopulateDatabaseRequest, model_name: str = "groq"
 
         sql_list = json.loads(cleaned)
 
-        return PopulateDatabaseResponse(sql=sql_list)
+        return sql_list
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-
+    
+    
 @router.post("/analyze", response_model=OptimizationAnalysisResponse)
 async def analyze(
     request: OptimizationAnalysisRequest,
