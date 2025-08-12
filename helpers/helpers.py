@@ -137,3 +137,43 @@ def generate_inserts(creation_command: str, number_insertions: int, fk_values: d
         inserts.append(f"INSERT INTO `{table_name}` ({', '.join(col_names)}) VALUES ({', '.join(val_list)});")
 
     return inserts
+
+def parse_create_table_dependencies(create_table_sql):
+    table_match = re.search(r"CREATE\s+TABLE\s+`?(\w+)`?", create_table_sql, re.IGNORECASE)
+    if not table_match:
+        raise ValueError(f"Não foi possível encontrar o nome da tabela em:\n{create_table_sql}")
+    table_name = table_match.group(1)
+
+    fks = re.findall(r"REFERENCES\s+`?(\w+)`?", create_table_sql, re.IGNORECASE)
+    return table_name, set(fks)
+
+def order_create_tables(create_tables_sql_list):
+    dependencies = defaultdict(set)
+    dependents = defaultdict(set)
+    tables = set()
+
+    for sql in create_tables_sql_list:
+        table, deps = parse_create_table_dependencies(sql)
+        tables.add(table)
+        dependencies[table] = deps
+        for dep in deps:
+            dependents[dep].add(table)
+
+    indegree = {t: len(dependencies[t]) for t in tables}
+
+    queue = deque([t for t in tables if indegree[t] == 0])
+    ordered_tables = []
+
+    while queue:
+        t = queue.popleft()
+        ordered_tables.append(t)
+        for dep in dependents[t]:
+            indegree[dep] -= 1
+            if indegree[dep] == 0:
+                queue.append(dep)
+
+    if len(ordered_tables) != len(tables):
+        raise ValueError("Ciclo detectado nas dependências das tabelas.")
+
+    table_map = {parse_create_table_dependencies(sql)[0]: sql for sql in create_tables_sql_list}
+    return [table_map[t] for t in ordered_tables]

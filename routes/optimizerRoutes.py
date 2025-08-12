@@ -2,12 +2,14 @@ import json
 import re
 from fastapi import APIRouter, Depends, HTTPException, Query
 from dependencies import get_api_key
+from helpers.helpers import order_create_tables
 from services.llmRouter import get_llm
 from models.payloadOptimizer import (
     OptimizerRequest,
     OptimizerResponse,
     CreateDatabaseRequest,
     CreateDatabaseResponse,
+    OrderTablesRequest,
     PopulateDatabaseResponse,
     PopulateDatabaseRequest,
     OptimizationAnalysisRequest,
@@ -63,6 +65,15 @@ async def populate_db(request: PopulateDatabaseRequest, model_name: str = "groq"
         sql_list = json.loads(cleaned)
 
         return sql_list
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+    
+@router.post("/order-tables")
+async def order_tables_endpoint(request: OrderTablesRequest):
+    try:
+        ordered = order_create_tables(request.creation_commands)
+        return {"ordered_tables": ordered}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     

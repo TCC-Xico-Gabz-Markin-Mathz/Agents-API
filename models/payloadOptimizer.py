@@ -47,3 +47,7 @@ class WeightRequest(BaseModel):
 
 class WeightResponse(BaseModel):
     result: Dict
+
+
+class OrderTablesRequest(BaseModel):
+    creation_commands: List[str]
