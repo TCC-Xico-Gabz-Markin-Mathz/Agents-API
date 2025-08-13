@@ -47,7 +47,8 @@ async def create_db(
     try:
         llm = get_llm(model_name)
         sql = await llm.create_database(database_structure=request.database_structure)
-        return CreateDatabaseResponse(sql=sql)
+        ordered = order_create_tables(sql)
+        return CreateDatabaseResponse(ordered)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -55,8 +56,9 @@ async def create_db(
 @router.post("/populate")
 async def populate_db(request: PopulateDatabaseRequest, model_name: str = "groq"):
     try:
+        ordered = order_create_tables(request.creation_commands)
         sql_raw = await get_llm(model_name).populate_database(
-            creation_commands=request.creation_command,
+            creation_commands=ordered,
             number_insertions=request.number_insertions,
         )
 

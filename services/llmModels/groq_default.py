@@ -99,6 +99,9 @@ class GroqLLM:
             )
             return process_llm_output(response.choices[0].message.content)
         except Exception as e:
+            self.attempt += 1
+            if self.attempt < 3:
+                return await self.create_database(database_structure)
             raise HTTPException(
                 500, f"Erro ao gerar estrutura de banco com Groq: {str(e)}"
             )
