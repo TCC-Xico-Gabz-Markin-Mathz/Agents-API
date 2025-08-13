@@ -108,7 +108,15 @@ class GroqLLM:
 
     async def populate_database(self, creation_commands: list, number_insertions: int) -> str:
         inserts = []
-        fk_values = {}
+        fk_values = {
+            "VARCHAR": [],
+            "INT": [],
+        }
+        
+        for count in range(number_insertions):
+            fk_values["VARCHAR"].append(f"fk_value_{count}")
+            fk_values["INT"].append(count + 1)
+            
         for creation_command in creation_commands:
             inserts.append(generate_inserts(creation_command, number_insertions, fk_values))
         return json.dumps(inserts, ensure_ascii=False)

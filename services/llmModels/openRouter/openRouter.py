@@ -64,48 +64,64 @@ class OpenRouterBaseLLMService(BaseLLMService):
         return await self._chat(messages)
 
     async def optimize_generate(self, query: str, database_structure: str) -> str:
-        prompt = (
-            "## Assistente Especializado em SQL e Otimização de Queries\n\n"
-            "Você é um **assistente especializado em SQL** e **otimização de desempenho de queries**. A seguir, você receberá:\n"
-            "* A **estrutura do banco de dados**\n"
-            "* Uma **query SQL** que precisa ser otimizada\n"
-            "---\n"
-            "### Tarefa\n"
-            "1. **Analisar** a query fornecida com base na estrutura do banco\n"
-            "2. **Sugerir comandos de otimização**, como criação de índices (`CREATE INDEX`), se necessário\n"
-            "3. **Reescrever a query** de forma mais eficiente, mantendo o mesmo resultado\n"
-            "---\n"
-            "### Formato da Resposta\n"
-            "* Retorne **apenas um JSON** com um **array de strings**, **sem explicações**\n"
-            "* O array deve conter, na ordem:\n"
-            "  1. **Comandos `CREATE INDEX`** (caso necessário)\n"
-            "  2. A **query otimizada**\n"
-            "---\n"
-            "### Estrutura do Banco de Dados\n"
-            f"{database_structure}\n"
-            "---\n"
-            "Query original:\n"
-            f"{query}"
-        )
-        messages = [{"role": "system", "content": prompt}]
-        raw_response = await self._chat(messages)
-        return process_llm_output(raw_response)
+        try:
+            prompt = (
+                "## Assistente Especializado em SQL e Otimização de Queries\n\n"
+                "Você é um **assistente especializado em SQL** e **otimização de desempenho de queries**. A seguir, você receberá:\n"
+                "* A **estrutura do banco de dados**\n"
+                "* Uma **query SQL** que precisa ser otimizada\n"
+                "---\n"
+                "### Tarefa\n"
+                "1. **Analisar** a query fornecida com base na estrutura do banco\n"
+                "2. **Sugerir comandos de otimização**, como criação de índices (`CREATE INDEX`), se necessário\n"
+                "3. **Reescrever a query** de forma mais eficiente, mantendo o mesmo resultado\n"
+                "---\n"
+                "### Formato da Resposta\n"
+                "* Retorne **apenas um JSON** com um **array de strings**, **sem explicações**\n"
+                "* O array deve conter, na ordem:\n"
+                "  1. **Comandos `CREATE INDEX`** (caso necessário)\n"
+                "  2. A **query otimizada**\n"
+                "---\n"
+                "### Estrutura do Banco de Dados\n"
+                f"{database_structure}\n"
+                "---\n"
+                "Query original:\n"
+                f"{query}"
+            )
+            messages = [{"role": "system", "content": prompt}]
+            raw_response = await self._chat(messages)
+            return process_llm_output(raw_response)
+        except Exception as e:
+            self.attempt += 1
+            if self.attempt < 3:
+                return await self.optimize_generate(query, database_structure)
+            raise HTTPException(
+                500, f"Erro ao gerar otimização de banco: {str(e)}"
+            )
 
     async def create_database(self, database_structure: str) -> str:
-        messages = [
-            {
-                "role": "system",
-                "content": (
-                    "Você é um assistente especializado em SQL. "
-                    "Converta a seguinte estrutura descritiva em comandos CREATE TABLE válidos, "
-                    "com tipos apropriados, chaves primárias e estrangeiras. "
-                    "Retorne um JSON contendo apenas uma lista de strings SQL (sem explicação)."
-                    f"\n\n{database_structure}"
-                )
-            }
-        ]
-        raw = await self._chat(messages)
-        return process_llm_output(raw)
+        try:
+            messages = [
+                {
+                    "role": "system",
+                    "content": (
+                        "Você é um assistente especializado em SQL. "
+                        "Converta a seguinte estrutura descritiva em comandos CREATE TABLE válidos, "
+                        "com tipos apropriados, chaves primárias e estrangeiras. "
+                        "Retorne um JSON contendo apenas uma lista de strings SQL (sem explicação)."
+                        f"\n\n{database_structure}"
+                    )
+                }
+            ]
+            raw = await self._chat(messages)
+            return process_llm_output(raw)
+        except Exception as e:
+            self.attempt += 1
+            if self.attempt < 3:
+                return await self.create_database(database_structure)
+            raise HTTPException(
+                500, f"Erro ao gerar estrutura de banco: {str(e)}"
+            )
 
 
     async def populate_database(self, creation_commands: list, number_insertions: int) -> str:

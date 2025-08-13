@@ -24,7 +24,7 @@ class PopulateDatabaseResponse(BaseModel):
 
 
 class PopulateDatabaseRequest(BaseModel):
-    creation_command: list
+    creation_commands: list
     number_insertions: int
 
 
