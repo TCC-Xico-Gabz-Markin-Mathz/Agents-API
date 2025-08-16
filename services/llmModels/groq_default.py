@@ -109,8 +109,10 @@ class GroqLLM:
             system_message = """
                 Você é um assistente especialista em DDL (Data Definition Language) SQL. Sua tarefa é criar comandos SQL `CREATE TABLE` com base em uma descrição de estrutura de banco de dados fornecida.
 
+                **Importante:** Gere apenas comandos `CREATE TABLE`. Não crie comandos `ALTER TABLE` ou qualquer outro tipo de DDL.
+
                 As regras para a geração das tabelas são:
-                - Cada tabela deve ter apenas uma chave primária (`PRIMARY KEY`).
+                - - Cada tabela deve ter uma chave primária, que pode ser uma única coluna ou uma combinação de colunas (chave primária composta). Para chaves primárias compostas, use a sintaxe `PRIMARY KEY (coluna1, coluna2, ...)`..
                 - As colunas de chave estrangeira (`FOREIGN KEY`) devem ter um nome que termine com `_id` e seu tipo de dado deve corresponder ao tipo de dado da chave primária da tabela referenciada.
                 - Os comandos SQL devem ser ordenados para que as tabelas sem chaves estrangeiras sejam criadas primeiro. Isso garante a correta execução dos comandos.
 
@@ -118,7 +120,7 @@ class GroqLLM:
 
                 Exemplo de formato de resposta:
                 [
-                "CREATE TABLE usuarios ( id INT PRIMARY KEY, nome VARCHAR(255) NOT NULL );",
+                "CREATE TABLE usuarios ( id INT PRIMARY KEY AUTO_INCREMENT, nome VARCHAR(255) NOT NULL );",
                 "CREATE TABLE pedidos ( id INT PRIMARY KEY, usuario_id INT, data DATE, FOREIGN KEY (usuario_id) REFERENCES usuarios(id) );"
                 ]
             """
