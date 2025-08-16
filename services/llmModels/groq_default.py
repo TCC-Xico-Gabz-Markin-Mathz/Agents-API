@@ -106,18 +106,32 @@ class GroqLLM:
 
     async def create_database(self, database_structure: str) -> str:
         try:
+            system_message = """
+                Você é um assistente especialista em DDL (Data Definition Language) SQL. Sua tarefa é criar comandos SQL `CREATE TABLE` com base em uma descrição de estrutura de banco de dados fornecida.
+
+                As regras para a geração das tabelas são:
+                - Cada tabela deve ter apenas uma chave primária (`PRIMARY KEY`).
+                - As colunas de chave estrangeira (`FOREIGN KEY`) devem ter um nome que termine com `_id` e seu tipo de dado deve corresponder ao tipo de dado da chave primária da tabela referenciada.
+                - Os comandos SQL devem ser ordenados para que as tabelas sem chaves estrangeiras sejam criadas primeiro. Isso garante a correta execução dos comandos.
+
+                O resultado deve ser um JSON contendo uma lista de strings, onde cada string é um comando SQL `CREATE TABLE` completo e funcional. Não inclua texto adicional, explicações ou qualquer tipo de formatação de markdown.
+
+                Exemplo de formato de resposta:
+                [
+                "CREATE TABLE usuarios ( id INT PRIMARY KEY, nome VARCHAR(255) NOT NULL );",
+                "CREATE TABLE pedidos ( id INT PRIMARY KEY, usuario_id INT, data DATE, FOREIGN KEY (usuario_id) REFERENCES usuarios(id) );"
+                ]
+            """
+            user_message = f"""
+                Descrição da estrutura do banco de dados:
+                {database_structure}
+            """
+
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {
-                        "role": "system",
-                        "content": (
-                            "Você é um assistente especialista em DDL SQL. Gere comandos CREATE TABLE com base na descrição a seguir. "
-                            "Retorne uma lista JSON de strings com os comandos, sem explicações, ordenados corretamente. "
-                            f"\n\n{database_structure}"
-                        ),
-                    },
-                    {"role": "user", "content": database_structure},
+                    {"role": "system", "content": system_message},
+                    {"role": "user", "content": user_message},
                 ],
             )
             return process_llm_output(response.choices[0].message.content)
