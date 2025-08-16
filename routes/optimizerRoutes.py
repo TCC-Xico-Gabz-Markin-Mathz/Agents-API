@@ -48,7 +48,9 @@ async def create_db(
         llm = get_llm(model_name)
         sql = await llm.create_database(database_structure=request.database_structure)
         ordered = order_create_tables(sql)
-        return CreateDatabaseResponse(ordered)
+
+        response = CreateDatabaseResponse(sql=ordered)
+        return response
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -69,8 +71,8 @@ async def populate_db(request: PopulateDatabaseRequest, model_name: str = "groq"
         return sql_list
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
-    
+
+
 @router.post("/order-tables")
 async def order_tables_endpoint(request: OrderTablesRequest):
     try:
@@ -78,8 +80,8 @@ async def order_tables_endpoint(request: OrderTablesRequest):
         return {"ordered_tables": ordered}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
-    
+
+
 @router.post("/analyze", response_model=OptimizationAnalysisResponse)
 async def analyze(
     request: OptimizationAnalysisRequest,
@@ -106,7 +108,7 @@ async def weights(
 ):
     try:
         llm = get_llm(model_name)
-        
+
         result = await llm.get_weights(ram_gb=request.ram_gb, priority=request.priority)
 
         cleaned = re.sub(r"```(?:json)?", "", result).strip("`")
