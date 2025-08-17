@@ -112,7 +112,7 @@ class GroqLLM:
                 **Importante:** Gere apenas comandos `CREATE TABLE`. Não crie comandos `ALTER TABLE` ou qualquer outro tipo de DDL.
 
                 As regras para a geração das tabelas são:
-                - - Cada tabela deve ter uma chave primária, que pode ser uma única coluna ou uma combinação de colunas (chave primária composta). Para chaves primárias compostas, use a sintaxe `PRIMARY KEY (coluna1, coluna2, ...)`..
+                - Cada tabela deve ter uma chave primária, que pode ser uma única coluna ou uma combinação de colunas (chave primária composta). Para chaves primárias compostas, use a sintaxe `PRIMARY KEY (coluna1, coluna2, ...)`..
                 - As colunas de chave estrangeira (`FOREIGN KEY`) devem ter um nome que termine com `_id` e seu tipo de dado deve corresponder ao tipo de dado da chave primária da tabela referenciada.
                 - Os comandos SQL devem ser ordenados para que as tabelas sem chaves estrangeiras sejam criadas primeiro. Isso garante a correta execução dos comandos.
 
