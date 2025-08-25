@@ -27,21 +27,20 @@ class OpenRouterBaseLLMService(BaseLLMService):
                 raise HTTPException(500, f"OpenRouter error: {response.text}")
             return response.json()["choices"][0]["message"]["content"]
 
-    async def get_sql_query_with_database_structure(self, database_structure: str, order: str) -> str:
+    async def get_sql_query_with_database_structure(
+        self, database_structure: str, order: str
+    ) -> str:
         messages = [
             {
                 "role": "system",
                 "content": (
-                    "Você é um assistente especializado em SQL. "
-                    f"Com base na seguinte estrutura de banco de dados:\n\n{database_structure}\n\n"
-                    "Gere uma única query SQL que atenda exatamente à seguinte solicitação do usuário. "
-                    "Retorne apenas a query SQL, sem explicações ou texto adicional."
-                )
+                    f"You are a SQL expert assistant. "
+                    f"Based on the following database structure:\n\n{database_structure}\n\n"
+                    f"Generate a single SQL query that exactly meets the following user request. "
+                    f"Return only the SQL query, without explanations or additional text."
+                ),
             },
-            {
-                "role": "user",
-                "content": order
-            }
+            {"role": "user", "content": order},
         ]
         return await self._chat(messages)
 
@@ -50,45 +49,52 @@ class OpenRouterBaseLLMService(BaseLLMService):
             {
                 "role": "system",
                 "content": (
-                    f"Você é um assistente especializado em SQL. "
-                    f"Com base na seguinte pergunta do usuario: {order}\n"
-                    f"Formule a resposta do banco ({result}) em linguagem natural para o usuário final."
-                    f"Retorne apenas a resposta, sem explicações adicionais."
+                    f"You are a SQL expert assistant. "
+                    f"Based on the following user question: {order} "
+                    f"Format the database-generated response in natural language. "
+                    f"Return only the answer for the user, without explanations."
                 ),
             },
-            {
-                "role": "user",
-                "content": result,
-            },
+            {"role": "user", "content": result},
         ]
         return await self._chat(messages)
 
     async def optimize_generate(self, query: str, database_structure: str) -> str:
         try:
-            prompt = (
-                "## Assistente Especializado em SQL e Otimização de Queries\n\n"
-                "Você é um **assistente especializado em SQL** e **otimização de desempenho de queries**. A seguir, você receberá:\n"
-                "* A **estrutura do banco de dados**\n"
-                "* Uma **query SQL** que precisa ser otimizada\n"
-                "---\n"
-                "### Tarefa\n"
-                "1. **Analisar** a query fornecida com base na estrutura do banco\n"
-                "2. **Sugerir comandos de otimização**, como criação de índices (`CREATE INDEX`), se necessário\n"
-                "3. **Reescrever a query** de forma mais eficiente, mantendo o mesmo resultado\n"
-                "---\n"
-                "### Formato da Resposta\n"
-                "* Retorne **apenas um JSON** com um **array de strings**, **sem explicações**\n"
-                "* O array deve conter, na ordem:\n"
-                "  1. **Comandos `CREATE INDEX`** (caso necessário)\n"
-                "  2. A **query otimizada**\n"
-                "---\n"
-                "### Estrutura do Banco de Dados\n"
-                f"{database_structure}\n"
-                "---\n"
-                "Query original:\n"
-                f"{query}"
-            )
-            messages = [{"role": "system", "content": prompt}]
+            system_message = """
+                You are an expert in SQL query optimization.
+                Your task is to analyze a provided SQL query and database structure and identify improvement opportunities.
+
+                The result should be a JSON containing a list of strings. Each string should be an SQL command.
+
+                The response should include at least two elements:
+                1. A SQL `CREATE INDEX` command for each column that could be used to improve query performance. If no new indexes are needed, return an empty array for this field.
+                2. The rewritten SQL query, optimized to be more efficient and scalable.
+
+                Your response should be *exclusively* the JSON, without any additional text, explanations, or markdown formatting.
+
+                Example response format:
+                [
+                "CREATE INDEX idx_table_name_column ON table_name (analyzed_column);",
+                "SELECT A.column1, B.column2 FROM table_A AS A JOIN table_B AS B ON A.id = B.id WHERE A.column1 > 100;"
+                ]
+
+                If no indexes are needed, the response should be:
+                [
+                "SELECT A.column1 FROM table_A AS A WHERE A.column1 > 100;"
+                ]
+            """
+            user_message = f"""
+                Database structure:
+                {database_structure}
+
+                Original query to be optimized:
+                {query}
+            """
+            messages = [
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": user_message},
+            ]
             raw_response = await self._chat(messages)
             return process_llm_output(raw_response)
         except Exception as e:
@@ -96,7 +102,7 @@ class OpenRouterBaseLLMService(BaseLLMService):
             if self.attempt < 3:
                 return await self.optimize_generate(query, database_structure)
             raise HTTPException(
-                500, f"Erro ao gerar otimização de banco: {str(e)}"
+                500, f"Error generating database optimization: {str(e)}"
             )
 
     async def create_database(self, database_structure: str) -> str:
@@ -105,12 +111,12 @@ class OpenRouterBaseLLMService(BaseLLMService):
                 {
                     "role": "system",
                     "content": (
-                        "Você é um assistente especializado em SQL. "
-                        "Converta a seguinte estrutura descritiva em comandos CREATE TABLE válidos, "
-                        "com tipos apropriados, chaves primárias e estrangeiras. "
-                        "Retorne um JSON contendo apenas uma lista de strings SQL (sem explicação)."
+                        "You are a SQL expert assistant. "
+                        "Convert the following descriptive structure into valid CREATE TABLE commands, "
+                        "with appropriate types, primary and foreign keys. "
+                        "Return a JSON containing only a list of SQL strings (without explanation)."
                         f"\n\n{database_structure}"
-                    )
+                    ),
                 }
             ]
             raw = await self._chat(messages)
@@ -119,26 +125,26 @@ class OpenRouterBaseLLMService(BaseLLMService):
             self.attempt += 1
             if self.attempt < 3:
                 return await self.create_database(database_structure)
-            raise HTTPException(
-                500, f"Erro ao gerar estrutura de banco: {str(e)}"
-            )
+            raise HTTPException(500, f"Error generating database structure: {str(e)}")
 
-
-    async def populate_database(self, creation_commands: list, number_insertions: int) -> str:
+    async def populate_database(
+        self, creation_commands: list, number_insertions: int
+    ) -> str:
         inserts = []
         fk_values = {
             "VARCHAR": [],
             "INT": [],
         }
-        
+
         for count in range(number_insertions):
             fk_values["VARCHAR"].append(f"fk_value_{count}")
             fk_values["INT"].append(count + 1)
-            
-        for creation_command in creation_commands:
-            inserts.append(generate_inserts(creation_command, number_insertions, fk_values))
-        return json.dumps(inserts, ensure_ascii=False)
 
+        for creation_command in creation_commands:
+            inserts.append(
+                generate_inserts(creation_command, number_insertions, fk_values)
+            )
+        return json.dumps(inserts, ensure_ascii=False)
 
     def analyze_optimization_effects(
         self,
@@ -152,115 +158,66 @@ class OpenRouterBaseLLMService(BaseLLMService):
             {
                 "role": "system",
                 "content": (
-                    "Você é um especialista sênior em performance de bancos de dados. "
-                    "Compare as métricas de execução de duas versões de uma query, com ou sem índices, e diga se vale a pena manter a otimização. "
-                    "Seja objetivo e técnico. Indique se deve **manter** ou **não manter**."
-                )
+                    "You are a senior database performance expert. "
+                    "Compare the execution metrics of two versions of a query, with or without indexes, and tell if it's worth keeping the optimization. "
+                    "Be objective and technical. Indicate whether to **keep** or **not keep**."
+                ),
             },
             {
                 "role": "user",
                 "content": (
-                    f"Query original:\n{original_query}\n\n"
-                    f"Métricas originais:\n{original_metrics}\n\n"
-                    f"Query otimizada:\n{optimized_query}\n\n"
-                    f"Métricas otimizadas:\n{optimized_metrics}\n\n"
-                    f"Índices aplicados:\n{applied_indexes}"
-                )
-            }
+                    f"Original query:\n{original_query}\n\n"
+                    f"Original metrics:\n{original_metrics}\n\n"
+                    f"Optimized query:\n{optimized_query}\n\n"
+                    f"Optimized metrics:\n{optimized_metrics}\n\n"
+                    f"Applied indexes:\n{applied_indexes}"
+                ),
+            },
         ]
         import asyncio
+
         return asyncio.run(self._chat(messages))
 
     async def get_weights(self, ram_gb: int = None, priority: str = None) -> str:
         try:
             prompt = f"""
-                {"O banco possui cerca de " + ram_gb + " de RAM disponível para operações." if ram_gb else ""}
-                {"A prioridade do sistema é: " + priority + "." if priority else ""}
+                {"The database has approximately " + str(ram_gb) + "GB of RAM available for operations." if ram_gb else ""}
+                {"The system priority is: " + priority + "." if priority else ""}
 
-                Quero calcular um score de custo para queries SQL usando a fórmula:
+                I want to calculate a cost score for SQL queries using the formula:
 
-                score = w1 * tempo_execucao + w2 * uso_cpu + w3 * uso_io + w4 * linhas_lidas + w5 * frequencia_execucao + w6 * tamanho_tabela + w7 * tabelas_sem_indice + w8 * colisoes_em_join
+                score = w1 * execution_time + w2 * cpu_usage + w3 * io_usage + w4 * rows_read + w5 * execution_frequency + w6 * table_size + w7 * tables_without_index + w8 * join_collisions
 
-                Considerando o contexto acima, gere os pesos w1 a w8 para refletir o custo real das queries nesse ambiente.
+                Considering the context above, generate weights w1 to w8 to reflect the real cost of queries in this environment.
 
-                Retorne apenas os pesos no formato JSON, sem comentário extras, garantindo que a soma dos pesos seja 1.0, assim:
+                Return only the weights in JSON format, without extra comments, ensuring the sum of weights is 1.0, like this:
 
                 {{
-                "tempo_execucao": number,
-                "uso_cpu": number,
-                "uso_io": number,
-                "linhas_lidas": number,
-                "frequencia_execucao": number,
-                "tamanho_tabela": number,
-                "tabelas_sem_indice": number,
-                "colisoes_em_join": number
+                "execution_time": number,
+                "cpu_usage": number,
+                "io_usage": number,
+                "rows_read": number,
+                "execution_frequency": number,
+                "table_size": number,
+                "tables_without_index": number,
+                "join_collisions": number
                 }}
                 """
 
-            chat_completion = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": (
-                            "Você é um especialista em performance de banco de dados.\n"
-                            "Sua tarefa é gerar pesos para um modelo de score de queries SQL,\n"
-                            "considerando dados de infraestrutura e perfil de uso.\n"
-                            "Forneça apenas um JSON com os pesos normalizados."
-                        ),
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt,
-                    },
-                ],
-            )
-
-            content = chat_completion.choices[0].message.content
-            return content
-
-        except Exception as e:
-            raise Exception(f"Erro ao gerar pesos com LLM: {e}")
-        
-    async def get_weights(self, ram_gb: int = None, priority: str = None) -> str:
-        try:
-            prompt = f"""
-                {"O banco possui cerca de " + ram_gb + " de RAM disponível para operações." if ram_gb else ""}
-                {"A prioridade do sistema é: " + priority + "." if priority else ""}
-
-                Quero calcular um score de custo para queries SQL usando a fórmula:
-
-                score = w1 * tempo_execucao + w2 * uso_cpu + w3 * uso_io + w4 * linhas_lidas + w5 * frequencia_execucao + w6 * tamanho_tabela + w7 * tabelas_sem_indice + w8 * colisoes_em_join
-
-                Considerando o contexto acima, gere os pesos w1 a w8 para refletir o custo real das queries nesse ambiente.
-
-                Retorne apenas os pesos no formato JSON, sem comentário extras, garantindo que a soma dos pesos seja 1.0, assim:
-
-                {{
-                "tempo_execucao": number,
-                "uso_cpu": number,
-                "uso_io": number,
-                "linhas_lidas": number,
-                "frequencia_execucao": number,
-                "tamanho_tabela": number,
-                "tabelas_sem_indice": number,
-                "colisoes_em_join": number
-                }}
-            """
-            
             messages = [
                 {
                     "role": "system",
                     "content": (
-                        "Você é um especialista em performance de banco de dados.\n"
-                        "Sua tarefa é gerar pesos para um modelo de score de queries SQL,\n"
-                        "considerando dados de infraestrutura e perfil de uso.\n"
-                        "Forneça apenas um JSON com os pesos normalizados."
-                    )
-                }
+                        "You are a database performance expert.\n"
+                        "Your task is to generate weights for an SQL query scoring model,\n"
+                        "considering infrastructure data and usage profile.\n"
+                        "Provide only a JSON with normalized weights."
+                    ),
+                },
+                {"role": "user", "content": prompt},
             ]
-            
+
             raw = await self._chat(messages)
             return raw
         except Exception as e:
-            raise Exception(f"Erro ao gerar pesos com LLM: {e}")
+            raise Exception(f"Error generating weights with LLM: {e}")

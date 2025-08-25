@@ -94,30 +94,37 @@ class GroqLLM:
                 500, f"Erro ao gerar estrutura de banco com Groq: {str(e)}"
             )
 
-    async def create_database(self, database_structure: str) -> str:
+    async def optimize_generate(self, query: str, database_structure: str) -> str:
         try:
             system_message = """
-                Você é um assistente especialista em DDL (Data Definition Language) SQL. Sua tarefa é criar comandos SQL `CREATE TABLE` com base em uma descrição de estrutura de banco de dados fornecida.
+                Você é um especialista em otimização de queries SQL.
+                Sua tarefa é analisar uma query SQL fornecida e a estrutura de um banco de dados e identificar oportunidades de melhoria.
 
-                **Importante:** Gere apenas comandos `CREATE TABLE`.
+                O resultado deve ser um JSON contendo uma lista de strings. Cada string deve ser um comando SQL.
 
-                As regras para a geração das tabelas são:
-                - Não esqueça nenhum dos campos passados
-                - Cada tabela deve ter uma chave primária, que pode ser uma única coluna ou uma combinação de colunas (chave primária composta). Para chaves primárias compostas, use a sintaxe `PRIMARY KEY (coluna1, coluna2, ...)`..
-                - As colunas de chave estrangeira (`FOREIGN KEY`) devem ter um nome que termine com `_id` e seu tipo de dado deve corresponder ao tipo de dado da chave primária da tabela referenciada.
-                - Os comandos SQL devem ser ordenados para que as tabelas sem chaves estrangeiras sejam criadas primeiro. Isso garante a correta execução dos comandos.
+                A resposta deve incluir, no mínimo, dois elementos:
+                1. Um comando SQL `CREATE INDEX` para cada coluna que possa ser usada para melhorar a performance da query. Se não houver necessidade de novos índices, retorne um array vazio para este campo.
+                2. A query SQL reescrita, otimizada para ser mais eficiente e escalável.
 
-                O resultado deve ser um JSON contendo uma lista de strings, onde cada string é um comando SQL `CREATE TABLE` completo e funcional. Não inclua texto adicional, explicações ou qualquer tipo de formatação de markdown.
+                Sua resposta deve ser *exclusivamente* o JSON, sem qualquer texto adicional, explicações ou formatação de markdown.
 
                 Exemplo de formato de resposta:
                 [
-                "CREATE TABLE usuarios ( id INT PRIMARY KEY AUTO_INCREMENT, nome VARCHAR(255) NOT NULL );",
-                "CREATE TABLE pedidos ( id INT PRIMARY KEY, usuario_id INT, data DATE, FOREIGN KEY (usuario_id) REFERENCES usuarios(id) );"
+                "CREATE INDEX idx_nome_tabela_coluna ON nome_tabela (coluna_analisada);",
+                "SELECT A.coluna1, B.coluna2 FROM tabela_A AS A JOIN tabela_B AS B ON A.id = B.id WHERE A.coluna1 > 100;"
+                ]
+
+                Se não houver necessidade de índices, a resposta deve ser:
+                [
+                "SELECT A.coluna1 FROM tabela_A AS A WHERE A.coluna1 > 100;"
                 ]
             """
             user_message = f"""
-                Descrição da estrutura do banco de dados:
+                Estrutura do banco de dados:
                 {database_structure}
+
+                Query original a ser otimizada:
+                {query}
             """
 
             response = self.client.chat.completions.create(
@@ -131,10 +138,8 @@ class GroqLLM:
         except Exception as e:
             self.attempt += 1
             if self.attempt < 3:
-                return await self.create_database(database_structure)
-            raise HTTPException(
-                500, f"Erro ao gerar estrutura de banco com Groq: {str(e)}"
-            )
+                return await self.optimize_generate(query, database_structure)
+            raise HTTPException(500, f"Erro ao otimizar query com Groq: {str(e)}")
 
     async def populate_database(
         self, creation_commands: list, number_insertions: int
