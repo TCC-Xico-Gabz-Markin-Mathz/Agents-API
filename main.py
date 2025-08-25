@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from routes import llmRoutes
 from routes import optimizerRoutes
 
-app = FastAPI()
+app = FastAPI(debug=True)
 
 app.include_router(llmRoutes.router)
 app.include_router(optimizerRoutes.router)
