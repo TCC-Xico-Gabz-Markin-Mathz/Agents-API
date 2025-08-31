@@ -12,21 +12,19 @@ class LLMService:
     async def get_sql_query_with_database_structure(
         self, database_structure: str, order: str
     ) -> str:
+        from prompts import sql_generation
         try:
+            system_message = sql_generation.get_system_message(database_structure)
+            user_message = sql_generation.get_user_message(order)
             chat_completion = self.client.chat.completions.create(
                 messages=[
                     {
                         "role": "system",
-                        "content": (
-                            f"Você é um assistente especializado em SQL. "
-                            f"Com base na seguinte estrutura de banco de dados:\n\n{database_structure}\n\n"
-                            f"Gere uma única query SQL que atenda exatamente à seguinte solicitação do usuário. "
-                            f"Retorne apenas a query SQL, sem explicações ou texto adicional."
-                        ),
+                        "content": system_message,
                     },
                     {
                         "role": "user",
-                        "content": order,
+                        "content": user_message,
                     },
                 ],
                 model="gemma2-9b-it",
@@ -39,21 +37,19 @@ class LLMService:
             )
 
     async def get_result_interpretation(self, result: str, order: str) -> str:
+        from prompts import result_interpretation
         try:
+            system_message = result_interpretation.get_system_message(order)
+            user_message = result_interpretation.get_user_message(result)
             chat_completion = self.client.chat.completions.create(
                 messages=[
                     {
                         "role": "system",
-                        "content": (
-                            f"Você é um assistente especializado em SQL. "
-                            f"Com base na seguinte pergunta do usuario: {order}"
-                            f"Formate a resposta gerada pelo banco ao realizar a query de uma forma em linguagem natural."
-                            f"Retorne apenas a resposta para o usuario, sem explicação."
-                        ),
+                        "content": system_message,
                     },
                     {
                         "role": "user",
-                        "content": result,
+                        "content": user_message,
                     },
                 ],
                 model="gemma2-9b-it",
@@ -66,147 +62,83 @@ class LLMService:
             )
 
     async def optimize_generate(self, query: str, database_structure: str) -> str:
-        chat_completion = self.client.chat.completions.create(
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "## Assistente Especializado em SQL e Otimização de Queries\n\n"
-                        "Você é um **assistente especializado em SQL** e **otimização de desempenho de queries**. A seguir, você receberá:\n"
-                        "* A **estrutura do banco de dados**\n"
-                        "* Uma **query SQL** que precisa ser otimizada\n"
-                        "---\n"
-                        "### Tarefa\n"
-                        "1. **Analisar** a query fornecida com base na estrutura do banco\n"
-                        "2. **Sugerir comandos de otimização**, como criação de índices (`CREATE INDEX`), se necessário\n"
-                        "3. **Reescrever a query** de forma mais eficiente, mantendo o mesmo resultado\n"
-                        "---\n"
-                        "### Formato da Resposta\n"
-                        "* Retorne **apenas um JSON** com um **array de strings**, **sem explicações**\n"
-                        "* O array deve conter, na ordem:\n"
-                        "  1. **Comandos `CREATE INDEX`** (caso necessário)\n"
-                        "  2. A **query otimizada**\n"
-                        "#### Exemplos\n"
-                        "**Com índices:**\n"
-                        "[\n"
-                        '  "CREATE INDEX idx_cliente_id ON pedidos(cliente_id);",\n'
-                        '  "SELECT * FROM pedidos WHERE cliente_id = 123;"\n'
-                        "]\n"
-                        "**Sem necessidade de índices:**\n"
-                        "[\n"
-                        "  \"SELECT * FROM pedidos WHERE name = 'name';\"\n"
-                        "]\n"
-                        "---\n"
-                        "### Estrutura do Banco de Dados\n"
-                        f"{database_structure}\n"
-                        "---\n"
-                        "### Observações\n"
-                        "* **Não inclua nenhuma explicação na resposta**\n"
-                        "* Apenas o JSON com os comandos SQL e a query otimizada, conforme os exemplos acima\n"
-                        "* Não retorne nenhum demarcador de bloco de código markdown como ```json ou ```sql\n"
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": f"Query original:\n{query}",
-                },
-            ],
-            model="gemma2-9b-it",
-        )
-        try:
-            if self.attempt >= 3:
+        from prompts import query_optimization
+        is_retry = False
+        while self.attempt < 3:
+            try:
+                system_message = query_optimization.get_system_message(is_retry=is_retry)
+                user_message = query_optimization.get_user_message(query, database_structure)
+                chat_completion = self.client.chat.completions.create(
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": system_message,
+                        },
+                        {
+                            "role": "user",
+                            "content": user_message,
+                        },
+                    ],
+                    model="gemma2-9b-it",
+                )
+                response = process_llm_output(chat_completion.choices[0].message.content)
                 self.attempt = 0
-            response = process_llm_output(chat_completion.choices[0].message.content)
-        except Exception as e:
-            self.attempt += 1
-            if self.attempt < 3:
-                return await self.optimize_generate(query, database_structure)
-            raise HTTPException(
-                status_code=500,
-                detail=f"Erro ao processar a resposta do LLM após 3 tentativas: {str(e)}",
-            )
-        return response
+                return response
+            except Exception as e:
+                self.attempt += 1
+                is_retry = True
+                if self.attempt >= 3:
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Erro ao processar a resposta do LLM após 3 tentativas: {str(e)}",
+                    )
 
     async def create_database(self, database_structure: str) -> str:
-        chat_completion = self.client.chat.completions.create(
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "## Assistente Especializado em SQL e Otimização de Queries\n\n"
-                        "Você é um **assistente especializado em SQL** e **criação de bancos de dados relacionais**. A seguir, você receberá:\n"
-                        "* A **estrutura do banco de dados**\n"
-                        "---\n"
-                        "### Tarefa\n"
-                        "**Converter** uma descrição de estrutura de banco de dados em comandos SQL do tipo DDL (Data Definition Language), como CREATE TABLEuma descrição de estrutura de banco de dados em comandos SQL do tipo DDL (Data Definition Language).\n"
-                        "---\n"
-                        "### Formato da Resposta\n"
-                        "* Retorne **apenas um JSON** com um **array de strings**, **sem explicações**\n"
-                        "* O array deve conter **apenas os comandos SQL necessários** para criar as tabelas e relacionamentos descritos em ordem para criar.\n"
-                        "- Considere tipos de dados apropriados, chaves primárias, estrangeiras e restrições se estiverem descritas.\n\n"
-                        "- Importante: Retorne na ordem de criação correta.\n"
-                        "---\n"
-                        "#### Exemplos:\n"
-                        "CREATE TABLE clientes (id INT PRIMARY KEY, nome VARCHAR(255), email VARCHAR(255) UNIQUE);\n"
-                        "CREATE TABLE pedidos (id INT PRIMARY KEY, cliente_id INT, data DATE, FOREIGN KEY (cliente_id) REFERENCES clientes(id));\n"
-                        "---\n"
-                        "### Estrutura do Banco de Dados\n"
-                        f"{database_structure}\n"
-                        "---\n"
-                        "### Observações\n"
-                        "* **Não inclua nenhuma explicação na resposta**\n"
-                        "* Apenas a lista de strings com os comandos SQL do tipo DDL, conforme os exemplos acima\n"
-                        "* Não retorne nenhum demarcador de bloco de código markdown como ```json ou ```sql\n"
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": database_structure,
-                },
-            ],
-            model="gemma2-9b-it",
-        )
-        try:
-            if self.attempt >= 5:
+        from prompts import database_creation_string as database_creation
+        is_retry = False
+        while self.attempt < 5:
+            try:
+                system_message = database_creation.get_system_message(is_retry=is_retry)
+                user_message = database_creation.get_user_message(database_structure)
+                chat_completion = self.client.chat.completions.create(
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": system_message,
+                        },
+                        {
+                            "role": "user",
+                            "content": user_message,
+                        },
+                    ],
+                    model="gemma2-9b-it",
+                )
+                response = process_llm_output(chat_completion.choices[0].message.content)
                 self.attempt = 0
-            response = process_llm_output(chat_completion.choices[0].message.content)
-        except Exception as e:
-            self.attempt += 1
-            if self.attempt < 5:
-                return await self.create_database(database_structure)
-            raise HTTPException(
-                status_code=500,
-                detail=f"Erro ao processar a resposta do LLM após {self.attempt} tentativas: {str(e)}",
-            )
-        return response
+                return response
+            except Exception as e:
+                self.attempt += 1
+                is_retry = True
+                if self.attempt >= 5:
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Erro ao processar a resposta do LLM após {self.attempt} tentativas: {str(e)}",
+                    )
 
     async def populate_database(self, creation_command: str, number_insertions) -> str:
+        from prompts import database_population
         try:
+            system_message = database_population.get_system_message(number_insertions)
+            user_message = database_population.get_user_message(creation_command)
             chat_completion = self.client.chat.completions.create(
                 messages=[
                     {
                         "role": "system",
-                        "content": (
-                            "Você é um assistente especializado em bancos de dados relacionais.\n"
-                            "Sua tarefa é gerar comandos SQL de exemplo para popular um banco de dados já estruturado.\n\n"
-                            "Com base nos comandos SQL de criação de tabelas fornecidos (CREATE TABLE), gere comandos INSERT INTO para povoar as tabelas com dados fictícios e coerentes.\n"
-                            f"- Gere até {number_insertions} inserções por tabela.\n"
-                            "- Os dados devem ser consistentes com os tipos definidos (ex: datas no formato YYYY-MM-DD, nomes fictícios, e-mails realistas, IDs coerentes).\n"
-                            "- Considere os relacionamentos entre tabelas (ex: chaves estrangeiras devem apontar para registros válidos).\n\n"
-                            "Retorne apenas os comandos INSERT INTO, mas **em formato de lista Python de strings**, por exemplo:\n"
-                            "[\n"
-                            "    \"INSERT INTO clientes (id, nome, email) VALUES (1, 'Francisco Silva', 'francisco@email.com');\",\n"
-                            "    \"INSERT INTO clientes (id, nome, email) VALUES (2, 'Laura Lima', 'laura@email.com');\",\n"
-                            "    ...\n"
-                            "]"
-                            "### Observações\n"
-                            "* Apenas a lista de strings com os comandos SQL, conforme os exemplos acima\n"
-                            "* Não retorne nenhum demarcador de bloco de código markdown como ```json ou ```sql\n"
-                        ),
+                        "content": system_message,
                     },
                     {
                         "role": "user",
-                        "content": creation_command,
+                        "content": user_message,
                     },
                 ],
                 model="gemma2-9b-it",
@@ -227,27 +159,15 @@ class LLMService:
         optimized_query: str,
         applied_indexes: list,
     ) -> str:
+        from prompts import optimization_analysis
         try:
-            system_prompt = (
-                "Você é um especialista sênior em performance de bancos de dados relacionais. "
-                "Sua tarefa é comparar duas versões de uma mesma query (original e otimizada), junto com suas métricas de execução e os índices aplicados. "
-                "Com base nas informações fornecidas, determine se as otimizações devem ser mantidas.\n\n"
-                "Considere: tempo de execução, uso de CPU e memória, linhas examinadas e enviadas, uso ou não de índices e clareza do plano de execução. "
-                "Ao analisar tempo e memória, leve em conta a **variação percentual**, pois o volume de dados pode ser pequeno.\n\n"
-                "Sua resposta deve conter:\n"
-                "- Uma decisão clara: **manter** ou **não manter** as otimizações.\n"
-                "- Justificativa técnica com foco em ganho percentual e impacto real.\n"
-                "- Riscos ou complexidade adicional trazida pela otimização.\n"
-                "- Comentários sobre os índices: se foram úteis ou não nessa consulta ou em outras potenciais.\n\n"
-                "Se a diferença de performance for mínima ou irrelevante, sugira não manter a mudança. Seja objetivo e técnico."
-            )
-
-            user_prompt = (
-                f"Query original:\n{original_query}\n\n"
-                f"Métricas da query original:\n{original_metrics}\n\n"
-                f"Query otimizada:\n{optimized_query}\n\n"
-                f"Métricas da query otimizada:\n{optimized_metrics}\n\n"
-                f"Índices aplicados:\n" + "\n".join(applied_indexes)
+            system_prompt = optimization_analysis.get_system_message()
+            user_prompt = optimization_analysis.get_user_message(
+                original_metrics,
+                optimized_metrics,
+                original_query,
+                optimized_query,
+                applied_indexes,
             )
 
             chat_completion = self.client.chat.completions.create(
