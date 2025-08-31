@@ -91,7 +91,7 @@ async def analyze(
 ):
     try:
         llm = get_llm(model_name)
-        result = llm.analyze_optimization_effects(
+        result = await llm.analyze_optimization_effects(
             original_metrics=request.original_metrics,
             optimized_metrics=request.optimized_metrics,
             original_query=request.original_query,
