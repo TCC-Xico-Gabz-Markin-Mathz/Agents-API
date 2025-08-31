@@ -1,4 +1,4 @@
-from services.llmModels.openRouter import OpenRouterBaseLLMService
+from services.llm_providers.openRouter import OpenRouterBaseLLMService
 
 class MistralLLM(OpenRouterBaseLLMService):
     def __init__(self):
