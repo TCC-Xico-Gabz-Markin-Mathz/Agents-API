@@ -36,7 +36,6 @@ async def optimize_query(
         )
         return OptimizerResponse(result=result)
     except Exception as e:
-        print(e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -53,7 +52,6 @@ async def create_db(
         response = CreateDatabaseResponse(sql=ordered)
         return response
     except Exception as e:
-        print(e)
         raise HTTPException(status_code=500, detail=str(e))
 
 

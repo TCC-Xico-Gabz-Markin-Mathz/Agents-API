@@ -14,18 +14,20 @@ class GroqLLM:
     async def get_sql_query_with_database_structure(
         self, database_structure: str, order: str
     ) -> str:
-        from prompts import sql_generation
         try:
-            system_message = sql_generation.get_system_message(database_structure)
-            user_message = sql_generation.get_user_message(order)
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {
                         "role": "system",
-                        "content": system_message,
+                        "content": (
+                            f"Você é um assistente especializado em SQL. "
+                            f"Com base na seguinte estrutura de banco de dados:\n\n{database_structure}\n\n"
+                            f"Gere uma única query SQL que atenda exatamente à seguinte solicitação do usuário. "
+                            f"Retorne apenas a query SQL, sem explicações ou texto adicional."
+                        ),
                     },
-                    {"role": "user", "content": user_message},
+                    {"role": "user", "content": order},
                 ],
             )
             return response.choices[0].message.content
@@ -33,18 +35,20 @@ class GroqLLM:
             raise HTTPException(500, f"Erro ao gerar query SQL com Groq: {str(e)}")
 
     async def get_result_interpretation(self, result: str, order: str) -> str:
-        from prompts import result_interpretation
         try:
-            system_message = result_interpretation.get_system_message(order)
-            user_message = result_interpretation.get_user_message(result)
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {
                         "role": "system",
-                        "content": system_message,
+                        "content": (
+                            f"Você é um assistente especializado em SQL. "
+                            f"Com base na seguinte pergunta do usuário: {order} "
+                            f"Formate a resposta gerada pelo banco em linguagem natural. "
+                            f"Retorne apenas a resposta para o usuário, sem explicações."
+                        ),
                     },
-                    {"role": "user", "content": user_message},
+                    {"role": "user", "content": result},
                 ],
             )
             return response.choices[0].message.content
@@ -54,50 +58,88 @@ class GroqLLM:
             )
 
     async def create_database(self, database_structure: dict) -> str:
-        from prompts import database_creation
-        is_retry = False
-        while self.attempt < 3:
-            try:
-                system_message = database_creation.get_system_message(is_retry=is_retry)
-                user_message = database_creation.get_user_message(database_structure)
+        try:
+            system_message = """
+                Você é um assistente especialista em DDL (Data Definition Language) SQL. Sua tarefa é criar comandos SQL `CREATE TABLE` com base em uma descrição de estrutura de banco de dados fornecida em formato JSON.
 
-                response = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=[
-                        {"role": "system", "content": system_message},
-                        {"role": "user", "content": user_message},
-                    ],
-                )
-                return process_llm_output(response.choices[0].message.content)
-            except Exception as e:
-                self.attempt += 1
-                is_retry = True
-                if self.attempt >= 3:
-                    raise HTTPException(500, f"Erro ao gerar estrutura de banco com Groq após 3 tentativas: {str(e)}")
-        self.attempt = 0
+                **Instruções:**
+                - Inclua todas as colunas e suas propriedades.
+                - Defina a chave primária (`PRIMARY KEY`). Use a sintaxe `PRIMARY KEY (coluna1, coluna2)` para chaves compostas.
+                - Defina as chaves estrangeiras (`FOREIGN KEY`) com o tipo de dado correto e referenciando a tabela e coluna apropriadas.
+                - Ordene os comandos de forma que as tabelas sem chaves estrangeiras sejam criadas primeiro.
+
+                **Formato de Saída:**
+                Retorne apenas uma lista JSON de strings, onde cada string é um comando SQL `CREATE TABLE` completo e funcional. Não inclua texto adicional, explicações ou qualquer formatação de markdown.
+                """
+
+            user_message = f"""
+                Descrição da estrutura do banco de dados em formato JSON:
+                {json.dumps(database_structure)}
+                """
+
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_message},
+                    {"role": "user", "content": user_message},
+                ],
+            )
+            return process_llm_output(response.choices[0].message.content)
+
+        except Exception as e:
+            self.attempt += 1
+            if self.attempt < 3:
+                return await self.create_database(database_structure)
+            raise HTTPException(
+                500, f"Erro ao gerar estrutura de banco com Groq: {str(e)}"
+            )
 
     async def optimize_generate(self, query: str, database_structure: str) -> str:
-        from prompts import query_optimization
-        is_retry = False
-        while self.attempt < 3:
-            try:
-                system_message = query_optimization.get_system_message(is_retry=is_retry)
-                user_message = query_optimization.get_user_message(query, database_structure)
+        try:
+            system_message = """
+                Você é um especialista em otimização de queries SQL.
+                Sua tarefa é analisar uma query SQL fornecida e a estrutura de um banco de dados e identificar oportunidades de melhoria.
 
-                response = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=[
-                        {"role": "system", "content": system_message},
-                        {"role": "user", "content": user_message},
-                    ],
-                )
-                return process_llm_output(response.choices[0].message.content)
-            except Exception as e:
-                self.attempt += 1
-                is_retry = True
-                if self.attempt >= 3:
-                    raise HTTPException(500, f"Erro ao otimizar query com Groq após 3 tentativas: {str(e)}")
-        self.attempt = 0
+                O resultado deve ser um JSON contendo uma lista de strings. Cada string deve ser um comando SQL.
+
+                A resposta deve incluir, no mínimo, dois elementos:
+                1. Um comando SQL `CREATE INDEX` para cada coluna que possa ser usada para melhorar a performance da query. Se não houver necessidade de novos índices, retorne um array vazio para este campo.
+                2. A query SQL reescrita, otimizada para ser mais eficiente e escalável.
+
+                Sua resposta deve ser *exclusivamente* o JSON, sem qualquer texto adicional, explicações ou formatação de markdown.
+
+                Exemplo de formato de resposta:
+                [
+                "CREATE INDEX idx_nome_tabela_coluna ON nome_tabela (coluna_analisada);",
+                "SELECT A.coluna1, B.coluna2 FROM tabela_A AS A JOIN tabela_B AS B ON A.id = B.id WHERE A.coluna1 > 100;"
+                ]
+
+                Se não houver necessidade de índices, a resposta deve ser:
+                [
+                "SELECT A.coluna1 FROM tabela_A AS A WHERE A.coluna1 > 100;"
+                ]
+            """
+            user_message = f"""
+                Estrutura do banco de dados:
+                {database_structure}
+
+                Query original a ser otimizada:
+                {query}
+            """
+
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_message},
+                    {"role": "user", "content": user_message},
+                ],
+            )
+            return process_llm_output(response.choices[0].message.content)
+        except Exception as e:
+            self.attempt += 1
+            if self.attempt < 3:
+                return await self.optimize_generate(query, database_structure)
+            raise HTTPException(500, f"Erro ao otimizar query com Groq: {str(e)}")
 
     async def populate_database(
         self, creation_commands: list, number_insertions: int
@@ -126,15 +168,18 @@ class GroqLLM:
         optimized_query: str,
         applied_indexes: list,
     ) -> str:
-        from prompts import optimization_analysis
         try:
-            system_prompt = optimization_analysis.get_system_message()
-            user_prompt = optimization_analysis.get_user_message(
-                original_metrics,
-                optimized_metrics,
-                original_query,
-                optimized_query,
-                applied_indexes,
+            system_prompt = (
+                "Você é um especialista em performance SQL. Compare a versão original e otimizada de uma query, "
+                "com suas métricas e índices aplicados. Decida se vale a pena manter a otimização com justificativa técnica. "
+                "Responda com clareza, analisando tempo, memória, uso de índices e impacto percentual."
+            )
+            user_prompt = (
+                f"Query original:\n{original_query}\n\n"
+                f"Métricas da query original:\n{original_metrics}\n\n"
+                f"Query otimizada:\n{optimized_query}\n\n"
+                f"Métricas da query otimizada:\n{optimized_metrics}\n\n"
+                f"Índices aplicados:\n" + "\n".join(applied_indexes)
             )
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -148,21 +193,46 @@ class GroqLLM:
             raise HTTPException(500, f"Erro ao analisar otimização com Groq: {str(e)}")
 
     async def get_weights(self, ram_gb: int = None, priority: str = None) -> str:
-        from prompts import weight_calculation
         try:
-            system_message = weight_calculation.get_system_message()
-            user_message = weight_calculation.get_user_message(ram_gb, priority)
+            prompt = f"""
+                {"O banco possui cerca de " + ram_gb + " de RAM disponível para operações." if ram_gb else ""}
+                {"A prioridade do sistema é: " + priority + "." if priority else ""}
+
+                Quero calcular um score de custo para queries SQL usando a fórmula:
+
+                score = w1 * tempo_execucao + w2 * uso_cpu + w3 * uso_io + w4 * linhas_lidas + w5 * frequencia_execucao + w6 * tamanho_tabela + w7 * tabelas_sem_indice + w8 * colisoes_em_join
+
+                Considerando o contexto acima, gere os pesos w1 a w8 para refletir o custo real das queries nesse ambiente.
+
+                Retorne apenas os pesos no formato JSON, sem comentário extras, garantindo que a soma dos pesos seja 1.0, assim:
+
+                {{
+                "tempo_execucao": number,
+                "uso_cpu": number,
+                "uso_io": number,
+                "linhas_lidas": number,
+                "frequencia_execucao": number,
+                "tamanho_tabela": number,
+                "tabelas_sem_indice": number,
+                "colisoes_em_join": number
+                }}
+                """
 
             chat_completion = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {
                         "role": "system",
-                        "content": system_message,
+                        "content": (
+                            "Você é um especialista em performance de banco de dados.\n"
+                            "Sua tarefa é gerar pesos para um modelo de score de queries SQL,\n"
+                            "considerando dados de infraestrutura e perfil de uso.\n"
+                            "Forneça apenas um JSON com os pesos normalizados."
+                        ),
                     },
                     {
                         "role": "user",
-                        "content": user_message,
+                        "content": prompt,
                     },
                 ],
             )

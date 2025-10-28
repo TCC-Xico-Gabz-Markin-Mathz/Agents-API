@@ -1,11 +1,11 @@
-import json
-import re
 import ast
+import re
 import random
 import string
 from datetime import datetime, timedelta
 from collections import defaultdict, deque
 
+import json
 import logging
 
 logger = logging.getLogger(__name__)
@@ -21,6 +21,10 @@ def process_llm_output(output: str):
     response_str = re.sub(r"```(?:json|python|sql)?\s*", "", response_str)
     response_str = re.sub(r"```\s*", "", response_str)
 
+    response_str = response_str.replace('"', '"').replace('"', '"')
+    response_str = response_str.replace(""", "'").replace(""", "'")
+    response_str = re.sub(r"\\'", "'", response_str)
+
     try:
         return json.loads(response_str)
     except Exception as _:
@@ -32,7 +36,7 @@ def process_llm_output(output: str):
         pass
 
     try:
-        match = re.search(r"^\[(.*)\]$", response_str, re.DOTALL)
+        match = re.search(r"\[(.*)\]", response_str, re.DOTALL)
         if match:
             list_content = match.group(1)
             items = []
@@ -47,7 +51,7 @@ def process_llm_output(output: str):
                     items.append(item)
             return items
 
-        pattern = r'["\']((?:[^"\'\\]|\\.)*)["\']'
+        pattern = r'["\']([^"\']*)["\']'
         matches = re.findall(pattern, response_str)
         if matches:
             return matches
@@ -65,8 +69,7 @@ def parse_create_table(creation_command: str):
         raise ValueError("Não foi possível identificar o nome da tabela")
     table_name = table_name.group(1)
 
-    # Corrigido: usar match mais robusto para capturar conteúdo entre parênteses
-    cols_block = re.search(r"\((.*)\)(?:\s*;)?\s*$", creation_command, re.DOTALL)
+    cols_block = re.search(r"\((.*)\)", creation_command, re.DOTALL)
     if not cols_block:
         raise ValueError("Não foi possível encontrar a definição das colunas")
     cols_block = cols_block.group(1)
@@ -91,7 +94,6 @@ def parse_create_table(creation_command: str):
             fk_columns.add(fk_col)
 
     for line in lines:
-        # Corrigido: regex para identificar constraints
         if re.match(
             r"^(PRIMARY|CONSTRAINT|UNIQUE|CHECK|KEY|FOREIGN)\b", line, re.IGNORECASE
         ):
@@ -121,35 +123,17 @@ def random_value(col, fk_values: dict, index: int):
 
     if col["primary_key"]:
         if col["type"] in ("INT", "BIGINT", "SMALLINT"):
-            # Corrigido: verificar se há valores INT disponíveis
-            if "INT" in fk_values and fk_values["INT"]:
-                return fk_values["INT"][min(index, len(fk_values["INT"]) - 1)]
-            else:
-                return index + 1
+            return fk_values["INT"][index]
 
         elif col["type"] in ("CHAR", "VARCHAR", "TEXT"):
-            # Corrigido: verificar se há valores VARCHAR disponíveis
-            if "VARCHAR" in fk_values and fk_values["VARCHAR"]:
-                return fk_values["VARCHAR"][min(index, len(fk_values["VARCHAR"]) - 1)]
-            else:
-                return f"PK_{index + 1}"
+            return fk_values["VARCHAR"][index]
 
     if col["foreign_key"]:
         if col["type"] in ("INT", "BIGINT", "SMALLINT"):
-            # Corrigido: verificar se há valores disponíveis antes de acessar
-            if "INT" in fk_values and fk_values["INT"]:
-                return fk_values["INT"][random.randint(0, len(fk_values["INT"]) - 1)]
-            else:
-                return 1
+            return fk_values["INT"][random.randint(0, len(fk_values["INT"]) - 1)]
 
         elif col["type"] in ("CHAR", "VARCHAR", "TEXT"):
-            # Corrigido: usar a mesma chave para VARCHAR
-            if "VARCHAR" in fk_values and fk_values["VARCHAR"]:
-                return fk_values["VARCHAR"][
-                    random.randint(0, len(fk_values["VARCHAR"]) - 1)
-                ]
-            else:
-                return "FK_1"
+            return fk_values["VARCHAR"][random.randint(0, len(fk_values["INT"]) - 1)]
 
     if col["type"] in ("INT", "BIGINT", "SMALLINT"):
         return random.randint(1, 1000)
@@ -181,15 +165,8 @@ def random_value(col, fk_values: dict, index: int):
 
 
 def generate_inserts(
-    creation_command: str, number_insertions: int, fk_values: dict = None
+    creation_command: str, number_insertions: int, fk_values: dict
 ) -> list:
-    # Corrigido: valores padrão se fk_values for None
-    if fk_values is None:
-        fk_values = {
-            "INT": list(range(1, 101)),
-            "VARCHAR": [f"REF_{i}" for i in range(1, 101)],
-        }
-
     table_name, columns = parse_create_table(creation_command)
     inserts = []
 
@@ -199,18 +176,9 @@ def generate_inserts(
         for col in columns:
             val = random_value(col, fk_values, i)
             if val is None:
-                if col["not_null"]:
-                    # Corrigido: valor padrão adequado para NOT NULL
-                    if col["type"] in ("INT", "BIGINT", "SMALLINT"):
-                        values.append("0")
-                    else:
-                        values.append("'DEFAULT'")
-                else:
-                    values.append("NULL")
+                values.append("NULL" if not col["not_null"] else "'X'")
             elif isinstance(val, str):
-                # Corrigido: escapar aspas simples
-                escaped_val = val.replace("'", "''")
-                values.append(f"'{escaped_val}'")
+                values.append(f"'{val}'")
             else:
                 values.append(str(val))
 
