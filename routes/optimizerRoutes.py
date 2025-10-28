@@ -2,7 +2,7 @@ import json
 import re
 from fastapi import APIRouter, Depends, HTTPException, Query
 from dependencies import get_api_key
-from helpers.helpers import order_create_tables
+from helpers.utils import order_create_tables
 from services.llmRouter import get_llm
 from models.payloadOptimizer import (
     OptimizerRequest,
@@ -10,7 +10,6 @@ from models.payloadOptimizer import (
     CreateDatabaseRequest,
     CreateDatabaseResponse,
     OrderTablesRequest,
-    PopulateDatabaseResponse,
     PopulateDatabaseRequest,
     OptimizationAnalysisRequest,
     OptimizationAnalysisResponse,
