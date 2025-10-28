@@ -1,8 +1,8 @@
 import json
 from fastapi import HTTPException
-from helpers.utils import process_llm_output
+from helpers.helpers import process_llm_output
 from services.groq import llm_connect
-from helpers.utils import generate_inserts
+from helpers.helpers import generate_inserts
 
 
 class GroqLLM:
