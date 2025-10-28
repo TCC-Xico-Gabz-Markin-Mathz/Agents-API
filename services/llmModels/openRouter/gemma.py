@@ -1,4 +1,4 @@
-from services.llm_providers.openRouter import OpenRouterBaseLLMService
+from services.llmModels.openRouter import OpenRouterBaseLLMService
 
 class GemmaLLM(OpenRouterBaseLLMService):
     def __init__(self):

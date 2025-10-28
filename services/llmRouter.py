@@ -1,8 +1,8 @@
-from services.llm_providers import GroqLLM
-from services.llm_providers.openRouter import MistralLLM
-from services.llm_providers.openRouter import GemmaLLM
-from services.llm_providers.openRouter import HermesLLM
-from services.llm_providers import BaseLLMService
+from services.llmModels import GroqLLM
+from services.llmModels.openRouter import MistralLLM
+from services.llmModels.openRouter import GemmaLLM
+from services.llmModels.openRouter import HermesLLM
+from services.llmModels import BaseLLMService
 
 def get_llm(model: str = "default") -> BaseLLMService:
     match model.lower():

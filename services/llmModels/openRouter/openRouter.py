@@ -3,8 +3,8 @@ import json
 import httpx
 from fastapi import HTTPException
 from typing import List
-from services.llm_providers import BaseLLMService
-from helpers.utils import generate_inserts, process_llm_output
+from services.llmModels import BaseLLMService
+from helpers.helpers import generate_inserts, process_llm_output
 
 
 class OpenRouterBaseLLMService(BaseLLMService):
