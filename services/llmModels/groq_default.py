@@ -9,7 +9,7 @@ class GroqLLM:
     def __init__(self):
         self.client = llm_connect()
         self.attempt = 0
-        self.model = "gemma2-9b-it"
+        self.model = "llama-3.1-8b-instant"
 
     async def get_sql_query_with_database_structure(
         self, database_structure: str, order: str

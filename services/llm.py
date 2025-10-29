@@ -29,7 +29,7 @@ class LLMService:
                         "content": order,
                     },
                 ],
-                model="gemma2-9b-it",
+                model="llama-3.1-8b-instant",
             )
             return chat_completion.choices[0].message.content
         except Exception as e:
@@ -56,7 +56,7 @@ class LLMService:
                         "content": result,
                     },
                 ],
-                model="gemma2-9b-it",
+                model="llama-3.1-8b-instant",
             )
             return chat_completion.choices[0].message.content
         except Exception as e:
@@ -111,7 +111,7 @@ class LLMService:
                     "content": f"Query original:\n{query}",
                 },
             ],
-            model="gemma2-9b-it",
+            model="llama-3.1-8b-instant",
         )
         try:
             if self.attempt >= 3:
@@ -164,7 +164,7 @@ class LLMService:
                     "content": database_structure,
                 },
             ],
-            model="gemma2-9b-it",
+            model="llama-3.1-8b-instant",
         )
         try:
             if self.attempt >= 5:
@@ -209,7 +209,7 @@ class LLMService:
                         "content": creation_command,
                     },
                 ],
-                model="gemma2-9b-it",
+                model="llama-3.1-8b-instant",
             )
 
             return chat_completion.choices[0].message.content
@@ -255,7 +255,7 @@ class LLMService:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
-                model="gemma2-9b-it",
+                model="llama-3.1-8b-instant",
             )
             return chat_completion.choices[0].message.content
         except Exception as e:
